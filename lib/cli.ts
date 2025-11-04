@@ -16,13 +16,47 @@ async function readJSConfig(filePath: string): Promise<unknown> {
 }
 
 export async function run(): Promise<void> {
-  const [, , _c, configPath, ...rest] = process.argv;
-  if (rest.length || _c !== '-c' || !configPath) {
-    console.error('Usage: -c <config-file>');
-    return process.exit(2);
+  const args = process.argv.slice(2);
+  let configPath = 'config.json'; // Default to config.json in cwd
+
+  // Parse arguments
+  if (args.length > 0) {
+    if (args[0] === '-c' || args[0] === '--config') {
+      if (!args[1]) {
+        console.error('Usage: irc-disc [-c|--config <config-file>]');
+        console.error('Defaults to config.json in current directory');
+        return process.exit(2);
+      }
+      configPath = args[1];
+    } else if (args[0] === '-h' || args[0] === '--help') {
+      console.log('Usage: irc-disc [-c|--config <config-file>]');
+      console.log('');
+      console.log('Options:');
+      console.log('  -c, --config <file>  Path to config file (default: config.json)');
+      console.log('  -h, --help           Show this help message');
+      console.log('');
+      console.log('Examples:');
+      console.log('  irc-disc                      # Uses config.json from current directory');
+      console.log('  irc-disc -c myconfig.json     # Uses specified config file');
+      console.log('  irc-disc --config bot.js      # Uses JavaScript config file');
+      return process.exit(0);
+    } else {
+      // Assume it's a config file path
+      configPath = args[0];
+    }
   }
 
   const completePath = resolve(process.cwd(), configPath);
+
+  // Check if config file exists
+  if (!fs.existsSync(completePath)) {
+    console.error(`Error: Config file not found: ${completePath}`);
+    console.error('');
+    console.error('Usage: irc-disc [-c|--config <config-file>]');
+    console.error('Defaults to config.json in current directory');
+    return process.exit(2);
+  }
+
   const config = completePath.endsWith('.json')
     ? readJSONConfig(completePath)
     : await readJSConfig(completePath);

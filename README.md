@@ -1,11 +1,9 @@
-# 🌉 Discord-IRC Bridge
+# 🌉 irc-disc Bridge
 
 <div align="center">
 
-[![Build Status](https://github.com/irc-disc/irc-disc/workflows/CI/badge.svg)](https://github.com/irc-disc/irc-disc/actions)
-[![npm version](https://badge.fury.io/js/irc-disc-bridge.svg)](https://www.npmjs.com/package/irc-disc-bridge)
+[![npm version](https://badge.fury.io/js/irc-disc.svg)](https://www.npmjs.com/package/irc-disc)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Discord](https://img.shields.io/discord/123456789012345678.svg?color=7289da&label=Discord&logo=discord&logoColor=white)](https://discord.gg/your-server)
 
 **A powerful, feature-rich bridge connecting Discord and IRC with enterprise-grade reliability**
 
@@ -64,10 +62,10 @@
 
 ```bash
 # Install via npm
-npm install -g irc-disc-bridge
+npm install -g irc-disc
 
 # Or clone and build from source
-git clone https://github.com/irc-disc/irc-disc.git
+git clone https://github.com/tribixbite/irc-disc.git
 cd irc-disc
 npm install
 npm run build
@@ -92,7 +90,7 @@ npm run build
 
 ```bash
 # Using global installation
-irc-disc-bridge --config config.json
+irc-disc --config config.json
 
 # Or from source
 npm start -- --config config.json
@@ -103,7 +101,7 @@ npm start -- --config config.json
    - Verify IRC connection in server logs
    - Test message synchronization
 
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/irc-disc-bridge)
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/irc-disc)
 
 ---
 
@@ -325,7 +323,7 @@ Monitor and control error recovery systems
 
 ```bash
 # Clone the repository
-git clone https://github.com/irc-disc/irc-disc.git
+git clone https://github.com/tribixbite/irc-disc.git
 cd irc-disc
 
 # Install dependencies
@@ -381,7 +379,7 @@ CMD ["npm", "start"]
 # docker-compose.yml
 version: '3.8'
 services:
-  irc-disc-bridge:
+  irc-disc:
     build: .
     environment:
       - DISCORD_TOKEN=${DISCORD_TOKEN}
@@ -406,7 +404,7 @@ volumes:
 <details>
 <summary><strong>🚀 Deploy to Railway</strong></summary>
 
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template/irc-disc-bridge)
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template/irc-disc)
 
 1. Click the deploy button above
 2. Configure environment variables
@@ -531,6 +529,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ### 🙏 Acknowledgments
 
+- Forked from [discord-irc](https://www.npmjs.com/package/discord-irc) by reactiflux
 - Built with [discord.js](https://discord.js.org/) and [irc-upd](https://github.com/Throne3d/node-irc)
 - Inspired by the IRC and Discord communities
 - Special thanks to all contributors and maintainers
@@ -541,6 +540,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Made with ❤️ by the Discord-IRC Bridge team**
 
-[⭐ Star us on GitHub](https://github.com/irc-disc/irc-disc) • [🐛 Report Issues](https://github.com/irc-disc/irc-disc/issues) • [💬 Join our Discord](https://discord.gg/your-server)
+[⭐ Star us on GitHub](https://github.com/tribixbite/irc-disc) • [🐛 Report Issues](https://github.com/tribixbite/irc-disc/issues) • [💬 Join our Discord](https://discord.gg/your-server)
 
 </div>
