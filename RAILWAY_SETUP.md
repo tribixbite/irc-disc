@@ -4,7 +4,7 @@ This guide will help you deploy the Discord-IRC bridge on Railway.
 
 ## Quick Deploy
 
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/discord-irc-bridge)
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/irc-disc-bridge)
 
 ## Manual Setup
 

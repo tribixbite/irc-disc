@@ -10,4 +10,5 @@
     "isolatedModules": true
   },
   "include": ["./lib/**/*", "./test/**/*"],
+  "exclude": ["./lib/server.ts"]
 }

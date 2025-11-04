@@ -107,8 +107,8 @@ export class IRCUserManager {
     });
 
     // Handle user quits
-    this.ircClient.on('quit', (nick: string, _reason?: string, channels?: string[]) => {
-      this.handleUserQuit(nick, channels);
+    this.ircClient.on('quit', (nick: string, _reason?: string, _channels?: string[]) => {
+      this.handleUserQuit(nick);
     });
 
     // Handle nick changes
@@ -198,7 +198,7 @@ export class IRCUserManager {
         break;
       
       case '323': // RPL_LISTEND
-        this.handleEndOfList(params);
+        this.handleEndOfList();
         break;
 
       case '001': // RPL_WELCOME

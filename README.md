@@ -2,8 +2,8 @@
 
 <div align="center">
 
-[![Build Status](https://github.com/discord-irc/discord-irc/workflows/CI/badge.svg)](https://github.com/discord-irc/discord-irc/actions)
-[![npm version](https://badge.fury.io/js/discord-irc-bridge.svg)](https://www.npmjs.com/package/discord-irc-bridge)
+[![Build Status](https://github.com/irc-disc/irc-disc/workflows/CI/badge.svg)](https://github.com/irc-disc/irc-disc/actions)
+[![npm version](https://badge.fury.io/js/irc-disc-bridge.svg)](https://www.npmjs.com/package/irc-disc-bridge)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Discord](https://img.shields.io/discord/123456789012345678.svg?color=7289da&label=Discord&logo=discord&logoColor=white)](https://discord.gg/your-server)
 
@@ -64,11 +64,11 @@
 
 ```bash
 # Install via npm
-npm install -g discord-irc-bridge
+npm install -g irc-disc-bridge
 
 # Or clone and build from source
-git clone https://github.com/discord-irc/discord-irc.git
-cd discord-irc
+git clone https://github.com/irc-disc/irc-disc.git
+cd irc-disc
 npm install
 npm run build
 ```
@@ -92,7 +92,7 @@ npm run build
 
 ```bash
 # Using global installation
-discord-irc-bridge --config config.json
+irc-disc-bridge --config config.json
 
 # Or from source
 npm start -- --config config.json
@@ -103,7 +103,7 @@ npm start -- --config config.json
    - Verify IRC connection in server logs
    - Test message synchronization
 
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/discord-irc-bridge)
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/irc-disc-bridge)
 
 ---
 
@@ -325,8 +325,8 @@ Monitor and control error recovery systems
 
 ```bash
 # Clone the repository
-git clone https://github.com/discord-irc/discord-irc.git
-cd discord-irc
+git clone https://github.com/irc-disc/irc-disc.git
+cd irc-disc
 
 # Install dependencies
 npm install
@@ -381,7 +381,7 @@ CMD ["npm", "start"]
 # docker-compose.yml
 version: '3.8'
 services:
-  discord-irc-bridge:
+  irc-disc-bridge:
     build: .
     environment:
       - DISCORD_TOKEN=${DISCORD_TOKEN}
@@ -406,7 +406,7 @@ volumes:
 <details>
 <summary><strong>🚀 Deploy to Railway</strong></summary>
 
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template/discord-irc-bridge)
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template/irc-disc-bridge)
 
 1. Click the deploy button above
 2. Configure environment variables
@@ -523,7 +523,7 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 ### 🛡️ Security
 
-For security concerns, please email security@discord-irc.com instead of using GitHub issues.
+For security concerns, please email security@irc-disc.com instead of using GitHub issues.
 
 ### 📜 License
 
@@ -541,6 +541,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Made with ❤️ by the Discord-IRC Bridge team**
 
-[⭐ Star us on GitHub](https://github.com/discord-irc/discord-irc) • [🐛 Report Issues](https://github.com/discord-irc/discord-irc/issues) • [💬 Join our Discord](https://discord.gg/your-server)
+[⭐ Star us on GitHub](https://github.com/irc-disc/irc-disc) • [🐛 Report Issues](https://github.com/irc-disc/irc-disc/issues) • [💬 Join our Discord](https://discord.gg/your-server)
 
 </div>

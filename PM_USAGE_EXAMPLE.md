@@ -1,6 +1,6 @@
 # Private Messages Usage Example
 
-This document provides a practical example of how to use the private messaging feature in discord-irc.
+This document provides a practical example of how to use the private messaging feature in irc-disc.
 
 ## Setup Example
 

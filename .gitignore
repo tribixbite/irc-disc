@@ -40,3 +40,4 @@ railway.env
 # Build
 dist/
 .idea/
+config.json
