@@ -7,6 +7,7 @@ import discord, {
   TextChannel,
   WebhookClient,
 } from 'discord.js';
+import util from 'util';
 import { logger } from './logger';
 import { validateChannelMapping } from './validators';
 import { formatFromDiscordToIRC, formatFromIRCToDiscord } from './formatting';
@@ -21,6 +22,14 @@ import { S3Uploader, S3Config } from './s3-uploader';
 import { MentionDetector, MentionConfig } from './mention-detector';
 import { StatusNotificationManager } from './status-notifications';
 import { IRCUserManager } from './irc-user-manager';
+
+// Polyfill for deprecated util.log (removed in Node.js 24)
+// The irc-upd library still uses it for debug logging
+if (!util.log) {
+  (util as any).log = function(...args: any[]) {
+    console.log(new Date().toISOString(), ...args);
+  };
+}
 
 // Usernames need to be between 2 and 32 characters for webhooks:
 const USERNAME_MIN_LENGTH = 2;
