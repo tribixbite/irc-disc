@@ -4,6 +4,22 @@ import fs from 'node:fs';
 import { resolve } from 'node:path';
 import stripJsonComments from 'strip-json-comments';
 import * as helpers from './helpers';
+import { logger } from './logger';
+
+// Global error handlers for production stability
+process.on('uncaughtException', (error: Error, origin: string) => {
+  logger.error(`[FATAL] Uncaught Exception at: ${origin}`, error);
+  logger.error('Stack trace:', error.stack);
+  // Exit cleanly - let process manager restart the bot
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason: unknown, promise: Promise<unknown>) => {
+  logger.error('[FATAL] Unhandled Promise Rejection at:', promise);
+  logger.error('Reason:', reason);
+  // Exit cleanly - let process manager restart the bot
+  process.exit(1);
+});
 
 function readJSONConfig(filePath: string): unknown {
   const configFile = fs.readFileSync(filePath, { encoding: 'utf8' });

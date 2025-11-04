@@ -598,7 +598,7 @@ class Bot {
       logger.warn('Received warn event from Discord', warning);
     });
 
-    this.discord.on('message', (message) => {
+    this.discord.on('messageCreate', (message) => {
       // Quick check: is this a PM thread message?
       if (message.channel && 
           typeof message.channel.isThread === 'function' && 
