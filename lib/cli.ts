@@ -5,6 +5,8 @@ import { resolve } from 'node:path';
 import stripJsonComments from 'strip-json-comments';
 import * as helpers from './helpers';
 import { logger } from './logger';
+import { validateConfig } from './config/schema';
+import { ZodError } from 'zod';
 
 // Global error handlers for production stability
 process.on('uncaughtException', (error: Error, origin: string) => {
@@ -95,7 +97,28 @@ export async function run(): Promise<void> {
     config = config[0];
   }
 
-  await helpers.createBot(config as Record<string, unknown>);
+  // Validate configuration with Zod schema
+  // This prevents runtime crashes from invalid config
+  try {
+    const validatedConfig = validateConfig(config);
+    logger.info('Configuration validated successfully');
+    await helpers.createBot(validatedConfig as Record<string, unknown>);
+  } catch (error) {
+    if (error instanceof ZodError) {
+      console.error('\n❌ Configuration validation failed:\n');
+      const zodError = error as any; // Type workaround for Zod v4
+      if (zodError.issues) {
+        zodError.issues.forEach((err: any) => {
+          console.error(`  • ${err.path.join('.')}: ${err.message}`);
+        });
+      }
+      console.error('\nPlease fix your configuration and try again.');
+      console.error('See https://github.com/tribixbite/irc-disc#configuration for details.\n');
+    } else {
+      console.error('Unexpected error during config validation:', error);
+    }
+    process.exit(2);
+  }
 }
 
 // Execute if run directly (when used as CLI entry point)

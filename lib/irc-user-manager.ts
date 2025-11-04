@@ -1,5 +1,6 @@
 import { logger } from './logger';
 import { Client as IRCClient } from 'irc-upd';
+import { ResponseAwareWhoisQueue } from './irc/response-aware-whois-queue';
 
 export interface IRCUserInfo {
   nick: string;
@@ -68,9 +69,11 @@ export class IRCUserManager {
   private pendingWhoisRequests: Set<string> = new Set();
   private pendingWhoRequests: Map<string, { resolve: (users: IRCUserInfo[]) => void; timeout: NodeJS.Timeout; users: IRCUserInfo[] }> = new Map();
   private pendingListRequests: Map<string, { resolve: (channels: IRCChannelListItem[]) => void; timeout: NodeJS.Timeout; channels: IRCChannelListItem[]; maxChannels: number }> = new Map();
+  private whoisQueue: ResponseAwareWhoisQueue;
 
   constructor(ircClient: IRCClient) {
     this.ircClient = ircClient;
+    this.whoisQueue = new ResponseAwareWhoisQueue(ircClient, 5000); // 5s timeout
     this.serverInfo = {
       name: '',
       supportedFeatures: new Map(),
@@ -655,29 +658,17 @@ export class IRCUserManager {
 
   private requestUserInfo(nick: string): void {
     const key = nick.toLowerCase();
-    
+
     // Avoid spamming WHOIS requests
     if (this.pendingWhoisRequests.has(key)) {
       return;
     }
 
-    // Clear any existing timeout
-    const existingTimeout = this.userInfoRequests.get(key);
-    if (existingTimeout) {
-      clearTimeout(existingTimeout);
-    }
-
-    // Rate limit WHOIS requests
-    const timeout = setTimeout(() => {
-      if (!this.pendingWhoisRequests.has(key)) {
-        this.pendingWhoisRequests.add(key);
-        this.ircClient.whois(nick);
-        logger.debug(`Requested WHOIS for ${nick}`);
-      }
-      this.userInfoRequests.delete(key);
-    }, 1000); // 1 second delay
-
-    this.userInfoRequests.set(key, timeout);
+    // Use the queue instead of direct whois() calls
+    // The queue prevents flood kicks by rate-limiting and waiting for responses
+    this.pendingWhoisRequests.add(key);
+    this.whoisQueue.add(nick);
+    logger.debug(`Added ${nick} to WHOIS queue`);
   }
 
   // Public API methods
