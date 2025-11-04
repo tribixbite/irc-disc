@@ -283,9 +283,14 @@ export class StatusNotificationManager {
    * Format message with placeholders
    */
   private formatMessage(
-    template: string, 
+    template: string | undefined,
     variables: { nick: string; channel: string; reason: string }
   ): string {
+    // Defensive check for undefined template
+    if (!template) {
+      return `*${variables.nick}*${variables.channel ? ` in ${variables.channel}` : ''}${variables.reason ? ` (${variables.reason})` : ''}`;
+    }
+
     return template
       .replace(/{nick}/g, variables.nick)
       .replace(/{channel}/g, variables.channel)
