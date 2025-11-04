@@ -57,9 +57,10 @@ export async function run(): Promise<void> {
     return process.exit(2);
   }
 
-  const config = completePath.endsWith('.json')
+  let config = completePath.endsWith('.json')
     ? readJSONConfig(completePath)
     : await readJSConfig(completePath);
+
   if (!config || typeof config !== 'object') {
     console.error(
       'expecting an object exported from the config file, got',
@@ -67,6 +68,17 @@ export async function run(): Promise<void> {
     );
     process.exit(2);
   }
+
+  // Handle array of configs (multi-bot setup) - use first bot
+  if (Array.isArray(config)) {
+    if (config.length === 0) {
+      console.error('Config array is empty');
+      process.exit(2);
+    }
+    console.log(`Found ${config.length} bot config(s), using first one`);
+    config = config[0];
+  }
+
   await helpers.createBot(config as Record<string, unknown>);
 }
 
