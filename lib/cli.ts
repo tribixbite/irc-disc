@@ -69,3 +69,8 @@ export async function run(): Promise<void> {
   }
   await helpers.createBot(config as Record<string, unknown>);
 }
+
+// Execute if run directly (when used as CLI entry point)
+if (require.main === module) {
+  void run();
+}
