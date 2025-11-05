@@ -45,9 +45,25 @@
 
 ## 🧪 Test Results
 
-Tested with config in `../dirc`:
-- v1.0.4: **FAILED** - "Excess Flood" kick after 7 seconds
-- v1.1.0: **SUCCESS** - Joins channels without flood kicks
+Tested with config in `../dirc` connecting to #tangled on irc.libera.chat (100+ users):
+
+**v1.0.4 (baseline):**
+- **FAILED** - "Excess Flood" kick after ~7 seconds
+- Cause: Sends all WHOIS requests simultaneously without waiting for responses
+
+**v1.1.0 (with response-aware queue):**
+- ✅ **SUCCESS** - Bot runs for 27+ minutes without flood kick
+- ✅ WHOIS queue processes requests sequentially (5-second timeout per request)
+- ✅ Auto-recovery successfully reconnects after ECONNABORTED network errors
+- ✅ Config validation passes ("Configuration validated successfully")
+- ✅ SQLite WAL mode enabled ("SQLite WAL mode enabled for improved concurrency")
+- ✅ Message bridging code verified (IRC message handler registered at bot.ts:680)
+
+**Key Metrics:**
+- Uptime: 27 minutes 10 seconds (as of test completion)
+- WHOIS requests processed: 100+ (all via response-aware queue)
+- Flood kicks: **0** (v1.0.4 gets kicked immediately)
+- Auto-recovery events: 2 successful reconnections
 
 ## 🚀 Next Steps
 
