@@ -30,11 +30,69 @@ export class PersistenceService {
           reject(err);
           return;
         }
-        
+
         logger.info(`Connected to SQLite database at ${this.dbPath}`);
-        this.createTables().then(resolve).catch(reject);
+
+        // Enable WAL mode for better concurrency and crash recovery
+        // NOTE: WAL mode requires backup tools to copy both .db and .db-wal files
+        // See README for backup considerations
+        this.db.run('PRAGMA journal_mode = WAL;', (walErr) => {
+          if (walErr) {
+            logger.warn('Failed to enable WAL mode, using default journal mode:', walErr);
+          } else {
+            logger.info('SQLite WAL mode enabled for improved concurrency');
+          }
+
+          // Proceed with table creation regardless of WAL mode result
+          this.createTables().then(resolve).catch(reject);
+        });
       });
     });
+  }
+
+  /**
+   * Execute a write operation with automatic retry on SQLITE_BUSY errors
+   * Uses exponential backoff with jitter to reduce contention
+   *
+   * @param operation Function that performs the database write operation
+   * @param maxRetries Maximum number of retry attempts (default: 5)
+   * @param baseDelay Initial delay in milliseconds (default: 50ms)
+   * @returns Promise that resolves when the operation succeeds
+   */
+  private async writeWithRetry<T>(
+    operation: () => Promise<T>,
+    maxRetries: number = 5,
+    baseDelay: number = 50
+  ): Promise<T> {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await operation();
+      } catch (error: any) {
+        // Check if this is a SQLITE_BUSY error (SQLITE_BUSY = 5)
+        const isBusyError = error?.code === 'SQLITE_BUSY' || error?.errno === 5;
+
+        if (!isBusyError || attempt === maxRetries) {
+          // Not a busy error or out of retries - throw the error
+          throw error;
+        }
+
+        // Calculate exponential backoff with jitter
+        const exponentialDelay = baseDelay * Math.pow(2, attempt);
+        const jitter = Math.random() * 0.3 * exponentialDelay; // 30% jitter
+        const delay = exponentialDelay + jitter;
+
+        logger.debug(
+          `SQLITE_BUSY error on attempt ${attempt + 1}/${maxRetries + 1}, ` +
+          `retrying after ${Math.round(delay)}ms`
+        );
+
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+
+    // This should never be reached due to the throw in the loop
+    throw new Error('writeWithRetry: Unexpected code path');
   }
 
   private async createTables(): Promise<void> {
@@ -72,11 +130,11 @@ export class PersistenceService {
 
   async savePMThread(ircNick: string, threadId: string, channelId: string): Promise<void> {
     const now = Date.now();
-    
-    return new Promise((resolve, reject) => {
+
+    return this.writeWithRetry(() => new Promise<void>((resolve, reject) => {
       this.db.run(`
-        INSERT OR REPLACE INTO pm_threads 
-        (irc_nick, thread_id, channel_id, last_activity) 
+        INSERT OR REPLACE INTO pm_threads
+        (irc_nick, thread_id, channel_id, last_activity)
         VALUES (?, ?, ?, ?)
       `, [ircNick.toLowerCase(), threadId, channelId, now], (err) => {
         if (err) {
@@ -87,7 +145,7 @@ export class PersistenceService {
           resolve();
         }
       });
-    });
+    }));
   }
 
   async getPMThread(ircNick: string): Promise<PMThreadData | null> {
@@ -137,10 +195,10 @@ export class PersistenceService {
   }
 
   async updatePMThreadNick(oldNick: string, newNick: string): Promise<void> {
-    return new Promise((resolve, reject) => {
+    return this.writeWithRetry(() => new Promise<void>((resolve, reject) => {
       this.db.run(`
-        UPDATE pm_threads 
-        SET irc_nick = ?, last_activity = ? 
+        UPDATE pm_threads
+        SET irc_nick = ?, last_activity = ?
         WHERE irc_nick = ?
       `, [newNick.toLowerCase(), Date.now(), oldNick.toLowerCase()], (err) => {
         if (err) {
@@ -151,13 +209,13 @@ export class PersistenceService {
           resolve();
         }
       });
-    });
+    }));
   }
 
   async deletePMThread(ircNick: string): Promise<void> {
-    return new Promise((resolve, reject) => {
+    return this.writeWithRetry(() => new Promise<void>((resolve, reject) => {
       this.db.run(`
-        DELETE FROM pm_threads 
+        DELETE FROM pm_threads
         WHERE irc_nick = ?
       `, [ircNick.toLowerCase()], (err) => {
         if (err) {
@@ -168,18 +226,18 @@ export class PersistenceService {
           resolve();
         }
       });
-    });
+    }));
   }
 
   async saveChannelUsers(channel: string, users: Set<string>): Promise<void> {
     const usersArray = Array.from(users);
     const usersJson = JSON.stringify(usersArray);
     const now = Date.now();
-    
-    return new Promise((resolve, reject) => {
+
+    return this.writeWithRetry(() => new Promise<void>((resolve, reject) => {
       this.db.run(`
-        INSERT OR REPLACE INTO channel_users 
-        (channel, users, last_updated) 
+        INSERT OR REPLACE INTO channel_users
+        (channel, users, last_updated)
         VALUES (?, ?, ?)
       `, [channel, usersJson, now], (err) => {
         if (err) {
@@ -190,7 +248,7 @@ export class PersistenceService {
           resolve();
         }
       });
-    });
+    }));
   }
 
   async getChannelUsers(channel: string): Promise<Set<string>> {
@@ -246,10 +304,10 @@ export class PersistenceService {
   }
 
   async saveMetric(key: string, value: string): Promise<void> {
-    return new Promise((resolve, reject) => {
+    return this.writeWithRetry(() => new Promise<void>((resolve, reject) => {
       this.db.run(`
-        INSERT OR REPLACE INTO bot_metrics 
-        (key, value) 
+        INSERT OR REPLACE INTO bot_metrics
+        (key, value)
         VALUES (?, ?)
       `, [key, value], (err) => {
         if (err) {
@@ -259,7 +317,7 @@ export class PersistenceService {
           resolve();
         }
       });
-    });
+    }));
   }
 
   async getMetric(key: string): Promise<string | null> {
@@ -295,7 +353,7 @@ export class PersistenceService {
   async cleanup(): Promise<void> {
     const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
     const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
-    
+
     const queries = [
       // Clean up old PM threads (inactive for more than 7 days)
       { sql: 'DELETE FROM pm_threads WHERE last_activity < ?', params: [sevenDaysAgo] },
@@ -304,7 +362,7 @@ export class PersistenceService {
     ];
 
     for (const query of queries) {
-      await new Promise<void>((resolve, reject) => {
+      await this.writeWithRetry(() => new Promise<void>((resolve, reject) => {
         this.db.run(query.sql, query.params, (err) => {
           if (err) {
             logger.error('Failed to cleanup database:', err);
@@ -313,9 +371,9 @@ export class PersistenceService {
             resolve();
           }
         });
-      });
+      }));
     }
-    
+
     logger.debug('Database cleanup completed');
   }
 }

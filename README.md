@@ -515,6 +515,73 @@ Enable comprehensive logging for troubleshooting:
 
 ---
 
+## 💾 Database & Backup
+
+### SQLite WAL Mode
+
+The bot uses SQLite with Write-Ahead Logging (WAL) mode for improved concurrency and crash recovery. WAL mode provides significant benefits:
+
+**Benefits:**
+- Better write performance with concurrent reads
+- Reduced risk of database corruption on crashes
+- Automatic recovery from system failures
+- Lower disk I/O for write operations
+
+**Important Backup Considerations:**
+
+When backing up the database, you **must** copy **all three files**:
+```bash
+discord-irc.db          # Main database file
+discord-irc.db-wal      # Write-Ahead Log file
+discord-irc.db-shm      # Shared memory file
+```
+
+**Backup Methods:**
+
+1. **Safe backup (recommended):**
+```bash
+# Stop the bot first
+systemctl stop irc-disc
+
+# Copy all database files
+cp discord-irc.db* /backup/location/
+
+# Restart the bot
+systemctl start irc-disc
+```
+
+2. **Hot backup (requires SQLite CLI):**
+```bash
+# Backup without stopping the bot
+sqlite3 discord-irc.db ".backup /backup/location/discord-irc.db"
+```
+
+**Filesystem Requirements:**
+
+WAL mode requires a filesystem that supports shared memory and file locking:
+- ✅ ext4, XFS, Btrfs (Linux)
+- ✅ APFS, HFS+ (macOS)
+- ✅ NTFS (Windows)
+- ⚠️ **NOT SUPPORTED:** Network filesystems (NFS, SMB/CIFS)
+- ⚠️ **NOT SUPPORTED:** Some Docker volumes on older systems
+
+If running in Docker or on a network filesystem, the bot will fall back to rollback journal mode automatically.
+
+**Monitoring Database Health:**
+
+```bash
+# Check database integrity
+sqlite3 discord-irc.db "PRAGMA integrity_check;"
+
+# View WAL mode status
+sqlite3 discord-irc.db "PRAGMA journal_mode;"
+
+# Check database size and WAL file
+ls -lh discord-irc.db*
+```
+
+---
+
 ## 🤝 Contributing
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
