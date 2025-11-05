@@ -304,8 +304,19 @@ class Bot {
     
     // Load message sync history from persistence
     await this.messageSync.loadHistoryFromPersistence();
-    
-    await this.discord.login(this.discordToken);
+
+    // Attach Discord event listeners BEFORE login to capture all connection events
+    // This prevents race conditions where errors during login are lost
+    this.attachDiscordListeners();
+
+    try {
+      logger.info('Attempting to log in to Discord...');
+      await this.discord.login(this.discordToken);
+      logger.info('Discord login promise resolved.');
+    } catch (error) {
+      logger.error('Discord login promise rejected:', error);
+      throw error; // Re-throw to ensure the application fails fast
+    }
 
     // Extract id and token from Webhook urls and connect.
     for (const [channel, url] of Object.entries(
@@ -344,11 +355,12 @@ class Bot {
     }
 
     this.ircClient = new irc.Client(this.server, this.nickname, ircOptions);
-    
+
     // Initialize IRC user manager
     this.ircUserManager = new IRCUserManager(this.ircClient);
-    
-    this.attachListeners();
+
+    // Attach IRC event listeners (Discord listeners already attached before login)
+    this.attachIRCListeners();
     
     // Start metrics HTTP server if configured
     if (this.metricsServer) {
