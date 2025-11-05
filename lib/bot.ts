@@ -356,8 +356,11 @@ class Bot {
 
     this.ircClient = new irc.Client(this.server, this.nickname, ircOptions);
 
-    // Initialize IRC user manager
-    this.ircUserManager = new IRCUserManager(this.ircClient);
+    // Initialize IRC user manager with WHOIS disabled by default
+    // (can be enabled via config to gather extended user info, but may cause spam on some servers)
+    this.ircUserManager = new IRCUserManager(this.ircClient, {
+      enableWhois: false // Disabled to prevent WHOIS timeout spam
+    });
 
     // Attach IRC event listeners (Discord listeners already attached before login)
     this.attachIRCListeners();
@@ -528,10 +531,12 @@ class Bot {
       };
       
       this.ircClient = new irc.Client(this.server, this.nickname, ircOptions);
-      
-      // Re-initialize IRC user manager
-      this.ircUserManager = new IRCUserManager(this.ircClient);
-      
+
+      // Re-initialize IRC user manager with WHOIS disabled by default
+      this.ircUserManager = new IRCUserManager(this.ircClient, {
+        enableWhois: false // Disabled to prevent WHOIS timeout spam
+      });
+
       // Re-attach IRC listeners
       this.attachIRCListeners();
       
@@ -1104,7 +1109,10 @@ class Bot {
         // Record metrics
         this.metrics.recordDiscordToIRC(author.id, ircChannel);
         this.metrics.recordCommand();
-        
+
+        // Mark Discord as active (message sent to IRC)
+        this.recoveryManager.recordSuccess('discord');
+
         // Record command message for edit/delete tracking
         this.messageSync.recordMessage(message.id, ircChannel, text, nickname);
       } else {
@@ -1130,6 +1138,9 @@ class Bot {
           // Record metrics for the whole message (not per sentence)
           if (sentences.some(s => formatFromDiscordToIRC(s))) {
             this.metrics.recordDiscordToIRC(author.id, ircChannel);
+
+            // Mark Discord as active (message sent to IRC)
+            this.recoveryManager.recordSuccess('discord');
           }
         }
 
@@ -1343,7 +1354,10 @@ class Bot {
       // Record metrics for command
       this.metrics.recordIRCToDiscord(author, channel);
       this.metrics.recordCommand();
-      
+
+      // Mark IRC as active (message received)
+      this.recoveryManager.recordSuccess('irc');
+
       return;
     }
 
@@ -1433,7 +1447,10 @@ class Bot {
       
       // Record metrics for webhook message
       this.metrics.recordIRCToDiscord(author, channel);
-      
+
+      // Mark IRC as active (message received)
+      this.recoveryManager.recordSuccess('irc');
+
       return;
     }
 
@@ -1454,9 +1471,12 @@ class Bot {
       `#${discordChannel.name}`,
     );
     await discordChannel.send(withAuthor);
-    
+
     // Record metrics for regular message
     this.metrics.recordIRCToDiscord(author, channel);
+
+    // Mark IRC as active (message received)
+    this.recoveryManager.recordSuccess('irc');
   }
 
   /* Sends a message to Discord exactly as it appears */

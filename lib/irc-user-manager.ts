@@ -60,6 +60,11 @@ export interface IRCChannelListItem {
   modes?: string[];
 }
 
+export interface IRCUserManagerConfig {
+  enableWhois?: boolean; // Whether to automatically request WHOIS info (default: false)
+  whoisTimeout?: number; // Timeout for WHOIS requests in ms (default: 5000)
+}
+
 export class IRCUserManager {
   private users: Map<string, IRCUserInfo> = new Map();
   private channels: Map<string, IRCChannelInfo> = new Map();
@@ -70,10 +75,12 @@ export class IRCUserManager {
   private pendingWhoRequests: Map<string, { resolve: (users: IRCUserInfo[]) => void; timeout: NodeJS.Timeout; users: IRCUserInfo[] }> = new Map();
   private pendingListRequests: Map<string, { resolve: (channels: IRCChannelListItem[]) => void; timeout: NodeJS.Timeout; channels: IRCChannelListItem[]; maxChannels: number }> = new Map();
   private whoisQueue: ResponseAwareWhoisQueue;
+  private enableWhois: boolean;
 
-  constructor(ircClient: IRCClient) {
+  constructor(ircClient: IRCClient, config: IRCUserManagerConfig = {}) {
     this.ircClient = ircClient;
-    this.whoisQueue = new ResponseAwareWhoisQueue(ircClient, 5000); // 5s timeout
+    this.enableWhois = config.enableWhois ?? false; // Disabled by default to prevent spam
+    this.whoisQueue = new ResponseAwareWhoisQueue(ircClient, config.whoisTimeout ?? 5000);
     this.serverInfo = {
       name: '',
       supportedFeatures: new Map(),
@@ -90,7 +97,7 @@ export class IRCUserManager {
     };
 
     this.setupEventHandlers();
-    logger.info('IRC User Manager initialized');
+    logger.info(`IRC User Manager initialized (WHOIS ${this.enableWhois ? 'enabled' : 'disabled'})`);
   }
 
   private setupEventHandlers(): void {
@@ -657,6 +664,11 @@ export class IRCUserManager {
   }
 
   private requestUserInfo(nick: string): void {
+    // Skip WHOIS requests if disabled in config
+    if (!this.enableWhois) {
+      return;
+    }
+
     const key = nick.toLowerCase();
 
     // Avoid spamming WHOIS requests
