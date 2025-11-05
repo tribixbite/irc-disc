@@ -1,6 +1,61 @@
-# irc-disc v1.1.3 - Security and Memory Improvements
+# irc-disc v1.1.4 - Critical Message Routing Fix
 
 ## ✅ Completed (2025-11-05)
+
+### 🔴 CRITICAL FIX: Message Routing Failure
+**File:** `lib/bot.ts`
+
+**Problem:**
+ALL message routing was completely broken. Messages were not being relayed between Discord and IRC due to unhandled promise rejections:
+- Discord → IRC: `sendToIRC(message)` called without `.catch()`
+- IRC → Discord: `sendToDiscord()` bound without error handling
+- 8 event handlers marked with "TODO: almost certainly not async safe"
+- All errors silently swallowed, no logging, messages dropped
+
+**Root Cause:**
+Async functions called in event handlers without error handling:
+```typescript
+// BROKEN - No error handling
+this.discord.on('messageCreate', (message) => {
+  this.sendToIRC(message);  // Unhandled promise rejection!
+});
+
+this.ircClient.on('message', this.sendToDiscord.bind(this));  // Errors swallowed!
+```
+
+**Solution:**
+Added proper error handling to ALL async event handlers:
+
+1. **Discord messageCreate** (line 647):
+   ```typescript
+   this.sendToIRC(message).catch((error) => {
+     logger.error('Error sending Discord message to IRC:', error);
+   });
+   ```
+
+2. **IRC message handler** (line 713):
+   ```typescript
+   this.ircClient.on('message', (author, channel, text) => {
+     this.sendToDiscord(author, channel, text).catch((error) => {
+       logger.error('Error sending IRC message to Discord:', error);
+     });
+   });
+   ```
+
+3. **IRC notice handler** (line 725)
+4. **IRC nick change** (line 732) - wrapped in async IIFE
+5. **IRC join** (line 767) - wrapped in async IIFE
+6. **IRC part** (line 809) - wrapped in async IIFE
+7. **IRC quit** (line 861) - wrapped in async IIFE
+8. **IRC action** (line 920)
+
+**Impact:**
+- ✅ Messages NOW ACTUALLY WORK between Discord ↔ IRC
+- ✅ Errors now logged instead of silently failing
+- ✅ Fixed 8 async-unsafe event handlers
+- ✅ Removed all "TODO: almost certainly not async safe" comments
+
+## 📦 Previous Release (v1.1.3)
 
 ### Security Fix 1: SSRF Protection for Webhooks and S3
 **File:** `lib/config/schema.ts`
