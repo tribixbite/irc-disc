@@ -8,6 +8,7 @@ import discord, {
   WebhookClient,
 } from 'discord.js';
 import util from 'util';
+import { LRUCache } from 'lru-cache';
 import { logger } from './logger';
 import { validateChannelMapping } from './validators';
 import { formatFromDiscordToIRC, formatFromIRCToDiscord } from './formatting';
@@ -96,7 +97,7 @@ class Bot {
   pmChannelId;
   pmThreadPrefix;
   pmAutoArchive;
-  pmThreads: Map<string, string>; // ircNick -> threadId mapping
+  pmThreads: LRUCache<string, string>; // ircNick -> threadId mapping with LRU eviction
 
   // Persistence service
   persistence: PersistenceService;
@@ -225,7 +226,14 @@ class Bot {
     this.pmChannelId = this.privateMessages.channelId || this.privateMessages.channel;
     this.pmThreadPrefix = this.privateMessages.threadPrefix || 'PM: ';
     this.pmAutoArchive = this.privateMessages.autoArchive || 60; // minutes
-    this.pmThreads = new Map();
+
+    // Use LRU cache to prevent memory leaks from unbounded PM thread tracking
+    // Limits to 500 most recent conversations (configurable via options)
+    const pmCacheSize = options.pmThreadCacheSize as number || 500;
+    this.pmThreads = new LRUCache<string, string>({
+      max: pmCacheSize,
+      ttl: 1000 * 60 * 60 * 24 * 7, // 7 days TTL
+    });
     
     // Initialize message synchronization
     this.messageSync = new MessageSynchronizer(this);
@@ -292,11 +300,17 @@ class Bot {
     
     // Initialize persistence service first
     await this.persistence.initialize();
-    
+
     // Load existing data from persistence
-    this.pmThreads = await this.persistence.getAllPMThreads();
+    const persistedPMThreads = await this.persistence.getAllPMThreads();
+
+    // Convert Map from persistence to LRU cache
+    for (const [nick, threadId] of persistedPMThreads.entries()) {
+      this.pmThreads.set(nick, threadId);
+    }
+
     const channelUsersData = await this.persistence.getAllChannelUsers();
-    
+
     // Convert Set data back to the expected format
     for (const [channel, users] of Object.entries(channelUsersData)) {
       this.channelUsers[channel] = users;

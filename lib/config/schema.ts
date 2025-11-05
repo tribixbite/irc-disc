@@ -10,6 +10,57 @@ import { z } from 'zod';
  * at startup instead of crashing unpredictably during runtime.
  */
 
+/**
+ * Check if a URL uses HTTPS (prevent MITM attacks)
+ */
+function isHttpsUrl(url: string): boolean {
+  return url.startsWith('https://');
+}
+
+/**
+ * Basic check to reject obviously private/internal URLs
+ * This prevents SSRF attacks via user-controlled URLs
+ */
+function isLikelySafeUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const hostname = parsed.hostname.toLowerCase();
+
+    // Reject localhost/loopback
+    if (hostname === 'localhost' ||
+        hostname === '127.0.0.1' ||
+        hostname.startsWith('127.') ||
+        hostname === '::1' ||
+        hostname === '0.0.0.0') {
+      return false;
+    }
+
+    // Reject common private IP ranges (basic check)
+    // 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
+    if (hostname.startsWith('10.') ||
+        hostname.startsWith('192.168.') ||
+        /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname)) {
+      return false;
+    }
+
+    // Reject link-local addresses
+    if (hostname.startsWith('169.254.')) {
+      return false;
+    }
+
+    // Reject internal TLDs
+    if (hostname.endsWith('.local') ||
+        hostname.endsWith('.internal') ||
+        hostname.endsWith('.localhost')) {
+      return false;
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // Status notification configuration
 const statusNotificationSchema = z.object({
   enabled: z.boolean().default(true),
@@ -33,7 +84,10 @@ const statusNotificationSchema = z.object({
 // S3 configuration
 const s3Schema = z.object({
   enabled: z.boolean().default(false),
-  endpoint: z.string().url(),
+  endpoint: z.string().url().refine(
+    isLikelySafeUrl,
+    { message: 'S3 endpoint must be a public URL (not localhost or private IP)' }
+  ),
   bucket: z.string().min(1),
   accessKeyId: z.string().min(1),
   secretAccessKey: z.string().min(1),
@@ -107,7 +161,12 @@ export const configSchema = z.object({
   privateMessages: privateMessagesSchema,
   recovery: recoverySchema,
   metrics: metricsSchema,
-  webhooks: z.record(z.string(), z.string().url()).optional(),
+  webhooks: z.record(
+    z.string(),
+    z.string().url()
+      .refine(isHttpsUrl, { message: 'Webhook URLs must use HTTPS' })
+      .refine(isLikelySafeUrl, { message: 'Webhook URLs must be public (not localhost or private IP)' })
+  ).optional(),
 
   // Formatting and behavior
   ircNickColor: z.boolean().optional(),

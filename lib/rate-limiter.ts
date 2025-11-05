@@ -1,3 +1,4 @@
+import { LRUCache } from 'lru-cache';
 import { logger } from './logger';
 
 export interface RateLimitConfig {
@@ -33,7 +34,9 @@ export interface UserActivity {
 
 export class RateLimiter {
   private config: RateLimitConfig;
-  private userActivity: Map<string, UserActivity> = new Map();
+  // Use LRU cache to prevent memory leaks from unbounded user tracking
+  // Automatically evicts least recently used entries when limit is reached
+  private userActivity: LRUCache<string, UserActivity>;
   private cleanupInterval: NodeJS.Timeout;
 
   constructor(config: Partial<RateLimitConfig> = {}) {
@@ -49,12 +52,20 @@ export class RateLimiter {
       ...config
     };
 
+    // Initialize LRU cache with 10,000 user limit
+    // Entries automatically expire after 7 days of inactivity
+    this.userActivity = new LRUCache<string, UserActivity>({
+      max: 10000,
+      ttl: 1000 * 60 * 60 * 24 * 7, // 7 days TTL
+      updateAgeOnGet: true, // Refresh TTL on access
+    });
+
     // Clean up old user activity every 5 minutes
     this.cleanupInterval = setInterval(() => {
       this.cleanupOldActivity();
     }, 5 * 60 * 1000);
 
-    logger.info('Rate limiter initialized with config:', this.config);
+    logger.info('Rate limiter initialized with LRU cache (max: 10000 users, TTL: 7 days)');
   }
 
   /**
@@ -268,19 +279,22 @@ export class RateLimiter {
 
   /**
    * Clean up old user activity to prevent memory leaks
+   * Note: LRU cache already handles automatic eviction via TTL,
+   * but this provides additional cleanup for inactive/unblocked users
    */
   private cleanupOldActivity(): void {
     const now = Date.now();
     const oneWeekAgo = now - 7 * 24 * 60 * 60 * 1000;
     let cleanedCount = 0;
 
-    for (const [userId, user] of this.userActivity.entries()) {
+    // LRU cache iteration uses forEach instead of entries()
+    this.userActivity.forEach((user, userId) => {
       // Remove users who haven't been active for a week and aren't blocked
       if (user.lastMessage < oneWeekAgo && (!user.isBlocked || now >= user.blockedUntil)) {
         this.userActivity.delete(userId);
         cleanedCount++;
       }
-    }
+    });
 
     if (cleanedCount > 0) {
       logger.debug(`Cleaned up ${cleanedCount} inactive user records`);

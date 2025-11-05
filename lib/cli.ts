@@ -33,6 +33,80 @@ async function readJSConfig(filePath: string): Promise<unknown> {
   return config;
 }
 
+/**
+ * Apply environment variable overrides for sensitive configuration
+ * Prevents storing secrets in config files (security best practice)
+ *
+ * Supported environment variables:
+ * - DISCORD_TOKEN: Discord bot token
+ * - IRC_PASSWORD: IRC server password
+ * - IRC_SASL_USERNAME: SASL authentication username
+ * - IRC_SASL_PASSWORD: SASL authentication password
+ * - S3_ENDPOINT: S3 endpoint URL
+ * - S3_BUCKET: S3 bucket name
+ * - S3_ACCESS_KEY_ID: S3 access key
+ * - S3_SECRET_ACCESS_KEY: S3 secret key
+ * - S3_REGION: S3 region
+ */
+function applyEnvironmentOverrides(config: any): any {
+  const overridden = { ...config };
+
+  // Discord token
+  if (process.env.DISCORD_TOKEN) {
+    overridden.discordToken = process.env.DISCORD_TOKEN;
+    logger.info('Using Discord token from DISCORD_TOKEN environment variable');
+  }
+
+  // IRC password
+  if (process.env.IRC_PASSWORD) {
+    overridden.password = process.env.IRC_PASSWORD;
+    logger.info('Using IRC password from IRC_PASSWORD environment variable');
+  }
+
+  // SASL authentication
+  if (process.env.IRC_SASL_USERNAME || process.env.IRC_SASL_PASSWORD) {
+    overridden.sasl = overridden.sasl || {};
+    if (process.env.IRC_SASL_USERNAME) {
+      overridden.sasl.username = process.env.IRC_SASL_USERNAME;
+      logger.info('Using SASL username from IRC_SASL_USERNAME environment variable');
+    }
+    if (process.env.IRC_SASL_PASSWORD) {
+      overridden.sasl.password = process.env.IRC_SASL_PASSWORD;
+      logger.info('Using SASL password from IRC_SASL_PASSWORD environment variable');
+    }
+  }
+
+  // S3 configuration
+  if (process.env.S3_ENDPOINT || process.env.S3_BUCKET ||
+      process.env.S3_ACCESS_KEY_ID || process.env.S3_SECRET_ACCESS_KEY ||
+      process.env.S3_REGION) {
+    overridden.s3 = overridden.s3 || {};
+
+    if (process.env.S3_ENDPOINT) {
+      overridden.s3.endpoint = process.env.S3_ENDPOINT;
+      logger.info('Using S3 endpoint from S3_ENDPOINT environment variable');
+    }
+    if (process.env.S3_BUCKET) {
+      overridden.s3.bucket = process.env.S3_BUCKET;
+      logger.info('Using S3 bucket from S3_BUCKET environment variable');
+    }
+    if (process.env.S3_ACCESS_KEY_ID) {
+      overridden.s3.accessKeyId = process.env.S3_ACCESS_KEY_ID;
+      logger.info('Using S3 access key from S3_ACCESS_KEY_ID environment variable');
+    }
+    if (process.env.S3_SECRET_ACCESS_KEY) {
+      overridden.s3.secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
+      logger.info('Using S3 secret key from S3_SECRET_ACCESS_KEY environment variable');
+    }
+    if (process.env.S3_REGION) {
+      overridden.s3.region = process.env.S3_REGION;
+      logger.info('Using S3 region from S3_REGION environment variable');
+    }
+  }
+
+  return overridden;
+}
+
 export async function run(): Promise<void> {
   const args = process.argv.slice(2);
   let configPath = 'config.json'; // Default to config.json in cwd
@@ -96,6 +170,10 @@ export async function run(): Promise<void> {
     console.log(`Found ${config.length} bot config(s), using first one`);
     config = config[0];
   }
+
+  // Apply environment variable overrides for sensitive credentials
+  // This prevents storing secrets in config files
+  config = applyEnvironmentOverrides(config);
 
   // Validate configuration with Zod schema
   // This prevents runtime crashes from invalid config

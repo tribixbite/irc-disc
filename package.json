@@ -42,6 +42,7 @@
     "irc-colors": "1.5.0",
     "irc-formatting": "1.0.0-rc3",
     "irc-upd": "0.11.0",
+    "lru-cache": "^11.2.2",
     "simple-markdown": "^0.7.3",
     "sqlite3": "^5.1.7",
     "strip-json-comments": "^3.1.1",
@@ -51,6 +52,7 @@
   "devDependencies": {
     "@eslint/js": "^9",
     "@tsconfig/node22": "^22.0.1",
+    "@types/lru-cache": "^7.10.9",
     "@types/node": "^22",
     "@types/sqlite3": "^3.1.11",
     "@vitest/eslint-plugin": "^1",

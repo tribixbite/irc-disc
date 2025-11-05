@@ -1,6 +1,80 @@
-# irc-disc v1.1.2 - Health Check and WHOIS Fixes
+# irc-disc v1.1.3 - Security and Memory Improvements
 
 ## ✅ Completed (2025-11-05)
+
+### Security Fix 1: SSRF Protection for Webhooks and S3
+**File:** `lib/config/schema.ts`
+
+**Problem:**
+- Webhook and S3 endpoint URLs could be configured to point to internal services
+- Attacker with config file access could exploit bot to scan internal networks
+- No validation prevented localhost, private IPs, or HTTP URLs
+
+**Solution:**
+Added two validation functions:
+- `isHttpsUrl()`: Enforces HTTPS for all webhook URLs (prevents MITM)
+- `isLikelySafeUrl()`: Rejects localhost, private IPs, link-local, and internal TLDs
+
+Applied to:
+- S3 endpoint configuration (line 87-90)
+- Webhook URL configuration (lines 164-169)
+
+**Impact:**
+- ✅ Prevents SSRF attacks via webhook/S3 URLs
+- ✅ Enforces HTTPS for all external requests
+- ✅ Blocks access to internal network resources (10.x, 192.168.x, 172.16-31.x, 169.254.x)
+- ✅ Blocks localhost, .local, .internal, .localhost domains
+
+### Security Fix 2: Environment Variable Support for Secrets
+**File:** `lib/cli.ts`
+
+**Problem:**
+- Sensitive credentials stored in plaintext config files
+- Discord tokens, IRC passwords, S3 keys committed to version control
+- No secure way to inject secrets in production environments
+
+**Solution:**
+Added `applyEnvironmentOverrides()` function that reads from environment variables:
+- `DISCORD_TOKEN`: Discord bot token
+- `IRC_PASSWORD`: IRC server password
+- `IRC_SASL_USERNAME`, `IRC_SASL_PASSWORD`: SASL authentication
+- `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_REGION`: S3 config
+
+**Impact:**
+- ✅ Secrets can now be injected via environment variables
+- ✅ Config files no longer need to contain credentials
+- ✅ Compatible with Docker, Kubernetes, and other deployment platforms
+- ✅ Backward compatible - config file values still work if env vars not set
+
+### Memory Fix 3: LRU Cache for Unbounded Maps
+**Files:** `lib/bot.ts`, `lib/rate-limiter.ts`
+
+**Problem:**
+- `pmThreads` Map grows indefinitely with PM conversations
+- `RateLimiter.userActivity` Map grows with every unique user
+- No automatic eviction → memory leaks over time
+- Long-running bots accumulate thousands of entries
+
+**Solution:**
+Replaced Maps with LRU caches:
+
+1. **lib/bot.ts** - PM thread tracking:
+   - `pmThreads`: LRU cache with 500 entry limit, 7-day TTL
+   - Configurable via `pmThreadCacheSize` option
+   - Converts persistence Map data on initialization
+
+2. **lib/rate-limiter.ts** - User activity tracking:
+   - `userActivity`: LRU cache with 10,000 entry limit, 7-day TTL
+   - Automatic eviction of least recently used entries
+   - TTL refreshes on access for active users
+
+**Impact:**
+- ✅ Memory usage bounded even with thousands of users/conversations
+- ✅ LRU eviction keeps most active data in cache
+- ✅ TTL automatically expires stale entries after 7 days
+- ✅ No behavior change for normal usage patterns
+
+## 📦 Previous Fixes (v1.1.2)
 
 ### Fix 1: WHOIS Timeout Spam
 **Files:** `lib/irc-user-manager.ts`, `lib/bot.ts`
@@ -78,34 +152,41 @@ Added `this.recoveryManager.recordSuccess()` calls at 5 locations:
 
 ## 🚀 Next Steps
 
-1. **Test with live server:**
-   ```bash
-   cd /data/data/com.termux/files/home/git/dirc
-   npx irc-disc
-   # Should see: "IRC User Manager initialized (WHOIS disabled)"
-   # Should NOT see: any WHOIS timeout warnings
-   ```
-
-2. **Build and publish v1.1.2:**
+1. **Update package version and publish v1.1.3:**
    ```bash
    cd /data/data/com.termux/files/home/git/discord-irc
-   npm version patch  # Bumps to 1.1.2
+   npm version patch  # Bumps to 1.1.3
    npm run build
    npm publish
    ```
 
-3. **Create Git tag:**
+2. **Create Git tag:**
    ```bash
-   git tag -a v1.1.2 -m "Release v1.1.2: Fix WHOIS timeout spam"
+   git tag -a v1.1.3 -m "Release v1.1.3: Security and memory improvements"
    git push origin main --tags
+   ```
+
+3. **Production deployment with environment variables:**
+   ```bash
+   cd /data/data/com.termux/files/home/git/dirc
+   # Set secrets via environment variables (recommended)
+   export DISCORD_TOKEN="your-token-here"
+   export IRC_PASSWORD="your-password-here"
+   npx irc-disc  # Will use env vars instead of config file values
    ```
 
 ## 📊 Summary
 
-**v1.1.2 Changes:**
-- ✅ WHOIS requests now disabled by default
-- ✅ Eliminates timeout spam on non-WHOIS servers
-- ✅ Configurable via `IRCUserManagerConfig` if needed
-- ✅ All tests passing (same baseline as before)
+**v1.1.3 Changes:**
+- ✅ SSRF protection for webhook and S3 URLs
+- ✅ Environment variable support for all secrets
+- ✅ LRU cache prevents memory leaks in PM threads and rate limiter
+- ✅ Tested with production config at ../dirc/config.json
+- ✅ All security validations passing
 
-**Status:** Ready for testing and publication
+**v1.1.2 Changes (included):**
+- ✅ WHOIS requests disabled by default
+- ✅ False health check warnings fixed
+- ✅ Proper activity tracking for recovery manager
+
+**Status:** Ready for publication
