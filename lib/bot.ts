@@ -631,10 +631,10 @@ class Bot {
 
     this.discord.on('messageCreate', (message) => {
       // Quick check: is this a PM thread message?
-      if (message.channel && 
-          typeof message.channel.isThread === 'function' && 
-          message.channel.isThread() && 
-          message.channel.name && 
+      if (message.channel &&
+          typeof message.channel.isThread === 'function' &&
+          message.channel.isThread() &&
+          message.channel.name &&
           message.channel.name.startsWith(this.pmThreadPrefix)) {
         // Handle PM thread message asynchronously
         this.handleDiscordPrivateMessage(message).catch((error) => {
@@ -642,9 +642,11 @@ class Bot {
         });
         return;
       }
-      
-      // Handle regular channel messages immediately
-      this.sendToIRC(message);
+
+      // Handle regular channel messages with proper error handling
+      this.sendToIRC(message).catch((error) => {
+        logger.error('Error sending Discord message to IRC:', error);
+      });
     });
 
     // Handle slash command interactions
@@ -707,21 +709,28 @@ class Bot {
       this.recoveryManager.recordFailure('irc', error);
     });
 
-    // TODO: almost certainly not async safe
-    this.ircClient.on('message', this.sendToDiscord.bind(this));
+    // Handle IRC messages with proper async error handling
+    this.ircClient.on('message', (author, channel, text) => {
+      this.sendToDiscord(author, channel, text).catch((error) => {
+        logger.error('Error sending IRC message to Discord:', error);
+      });
+    });
 
     // Handle private messages from IRC users
     this.ircClient.on('pm', async (from, text) => {
       await this.handleIrcPrivateMessage(from, text);
     });
 
-    // TODO: almost certainly not async safe
-    this.ircClient.on('notice', async (author, to, text) =>
-      this.sendToDiscord(author, to, `*${text}*`),
-    );
+    // Handle IRC notices with proper async error handling
+    this.ircClient.on('notice', (author, to, text) => {
+      this.sendToDiscord(author, to, `*${text}*`).catch((error) => {
+        logger.error('Error sending IRC notice to Discord:', error);
+      });
+    });
 
-    // TODO: almost certainly not async safe
-    this.ircClient.on('nick', async (oldNick, newNick, channels) => {
+    // Handle IRC nick changes with proper async error handling
+    this.ircClient.on('nick', (oldNick, newNick, channels) => {
+      (async () => {
       // Update PM thread mapping for nick changes (don't await to avoid blocking)
       this.updatePmThreadForNickChange(oldNick, newNick).catch((error) => {
         logger.error('Error updating PM thread for nick change:', error);
@@ -749,10 +758,14 @@ class Bot {
           );
         }
       }
+      })().catch((error) => {
+        logger.error('Error handling IRC nick change:', error);
+      });
     });
 
-    // TODO: almost certainly not async safe
-    this.ircClient.on('join', async (channelName, nick) => {
+    // Handle IRC joins with proper async error handling
+    this.ircClient.on('join', (channelName, nick) => {
+      (async () => {
       logger.debug('Received join:', channelName, nick);
       
       const channel = channelName.toLowerCase();
@@ -787,10 +800,14 @@ class Bot {
           }
         }
       }
+      })().catch((error) => {
+        logger.error('Error handling IRC join:', error);
+      });
     });
 
-    // TODO: almost certainly not async safe
-    this.ircClient.on('part', async (channelName, nick, reason) => {
+    // Handle IRC parts with proper async error handling
+    this.ircClient.on('part', (channelName, nick, reason) => {
+      (async () => {
       logger.debug('Received part:', channelName, nick, reason);
       
       const channel = channelName.toLowerCase();
@@ -835,10 +852,14 @@ class Bot {
           );
         }
       }
+      })().catch((error) => {
+        logger.error('Error handling IRC part:', error);
+      });
     });
 
-    // TODO: almost certainly not async safe
-    this.ircClient.on('quit', async (nick, reason, channels) => {
+    // Handle IRC quits with proper async error handling
+    this.ircClient.on('quit', (nick, reason, channels) => {
+      (async () => {
       logger.debug('Received quit:', nick, channels);
       
       const isBotEvent = nick === this.ircClient.nick;
@@ -879,6 +900,9 @@ class Bot {
           }
         }
       }
+      })().catch((error) => {
+        logger.error('Error handling IRC quit:', error);
+      });
     });
 
     this.ircClient.on('names', (channelName, nicks) => {
@@ -892,10 +916,12 @@ class Bot {
       });
     });
 
-    // TODO: almost certainly not async safe
-    this.ircClient.on('action', async (author, to, text) =>
-      this.sendToDiscord(author, to, `_${text}_`),
-    );
+    // Handle IRC actions with proper async error handling
+    this.ircClient.on('action', (author, to, text) => {
+      this.sendToDiscord(author, to, `_${text}_`).catch((error) => {
+        logger.error('Error sending IRC action to Discord:', error);
+      });
+    });
 
     this.ircClient.on('invite', (channel, from) => {
       logger.debug('Received invite:', channel, from);
