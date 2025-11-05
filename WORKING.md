@@ -1,3 +1,54 @@
+# irc-disc v1.1.5 - Join Message Spam Fix
+
+## ✅ Completed (2025-11-05)
+
+### 🔴 CRITICAL FIX: StatusNotificationManager Spamming Join Messages
+**File:** `lib/bot.ts:293-303`
+
+**Problem:**
+Bot was spamming IRC join messages to Discord continuously due to StatusNotificationManager being enabled by default. This feature was **NOT in the original discord-irc** and was added in our fork.
+
+**Root Cause:**
+1. StatusNotificationManager defaults to `enabled: true` (lib/status-notifications.ts:34)
+2. `useDedicatedChannels: true` by default (line 35)
+3. `fallbackToMainChannel: true` by default (line 36)
+4. **No dedicated channel configured**, so ALWAYS falls back to main channel
+5. Every IRC join event triggered a Discord message via fallback channel
+6. Original implementation only sent join messages if `ircStatusNotices` was enabled
+7. Our fork ignored this and always sent via StatusNotificationManager
+
+**Comparison with Original:**
+```javascript
+// ORIGINAL (discord-irc-original/lib/bot.js:198-206)
+this.ircClient.on('join', (channelName, nick) => {
+  if (!this.ircStatusNotices) return;  // ✅ Early exit if disabled
+  if (nick === this.ircClient.nick && !this.announceSelfJoin) return;
+  this.sendExactToDiscord(channel, `*${nick}* has joined the channel`);
+});
+
+// OUR FORK (lib/bot.ts:786-801) - BROKEN
+const sent = await this.statusNotifications.sendJoinNotification(...);
+// StatusNotificationManager ALWAYS sends because fallbackToMainChannel=true!
+```
+
+**Solution:**
+Disabled StatusNotificationManager by default to match original behavior:
+```typescript
+const finalStatusConfig: Partial<typeof statusConfig> & { enabled: boolean } = {
+  ...statusConfig,
+  enabled: (options.statusNotifications as any)?.enabled ?? false  // Default: disabled
+};
+this.statusNotifications = new StatusNotificationManager(finalStatusConfig);
+```
+
+**Impact:**
+- ✅ Join message spam stopped
+- ✅ Behavior now matches original discord-irc
+- ✅ StatusNotificationManager can still be explicitly enabled via config
+- ✅ Legacy `ircStatusNotices` option works correctly
+
+---
+
 # irc-disc v1.1.4 - Critical Message Routing Fix
 
 ## ✅ Completed (2025-11-05)

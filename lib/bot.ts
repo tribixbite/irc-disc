@@ -291,8 +291,16 @@ class Bot {
     this.mentionDetector = new MentionDetector(mentionConfig);
     
     // Initialize status notifications
+    // IMPORTANT: StatusNotificationManager was added in our fork and is NOT in the original
+    // It defaults to enabled=true, which causes join message spam
+    // Disable it by default to match original behavior, only enable if explicitly configured
     const statusConfig = StatusNotificationManager.loadConfig(options);
-    this.statusNotifications = new StatusNotificationManager(statusConfig);
+    // Pass enabled=false to constructor to prevent spam (respects explicit config if set)
+    const finalStatusConfig: Partial<typeof statusConfig> & { enabled: boolean } = {
+      ...statusConfig,
+      enabled: (options.statusNotifications as any)?.enabled ?? false
+    };
+    this.statusNotifications = new StatusNotificationManager(finalStatusConfig);
   }
 
   async connect(): Promise<void> {
