@@ -1,0 +1,254 @@
+import { Database } from 'bun:sqlite';
+import { logger } from './logger';
+
+export interface PMThreadData {
+  ircNick: string;
+  threadId: string;
+  channelId: string;
+  lastActivity: number;
+}
+
+export interface ChannelUserData {
+  channel: string;
+  users: string[];
+  lastUpdated: number;
+}
+
+/**
+ * Bun-native SQLite persistence service using Bun.Database
+ * This is a drop-in replacement for the sqlite3-based PersistenceService
+ * with identical API but using Bun's native, faster SQLite implementation
+ */
+export class PersistenceService {
+  private db!: Database;
+  private dbPath: string;
+
+  constructor(dbPath: string = './discord-irc.db') {
+    this.dbPath = dbPath;
+  }
+
+  async initialize(): Promise<void> {
+    try {
+      // Bun's Database constructor is synchronous and fast
+      this.db = new Database(this.dbPath, { create: true });
+
+      logger.info(`Connected to SQLite database at ${this.dbPath} (Bun native)`);
+
+      // Enable WAL mode for better concurrency
+      try {
+        this.db.run('PRAGMA journal_mode = WAL;');
+        logger.info('SQLite WAL mode enabled for improved concurrency');
+      } catch (walErr) {
+        logger.warn('Failed to enable WAL mode, using default journal mode:', walErr);
+      }
+
+      // Create tables
+      await this.createTables();
+    } catch (err) {
+      logger.error('Failed to open database:', err);
+      throw err;
+    }
+  }
+
+  /**
+   * Bun's Database API is synchronous and doesn't have SQLITE_BUSY issues
+   * like the async sqlite3 library, so this is a simple wrapper for API compatibility
+   */
+  private async writeWithRetry<T>(
+    operation: () => T,
+    maxRetries: number = 5,
+    baseDelay: number = 50
+  ): Promise<T> {
+    // Bun's SQLite is synchronous and handles locking internally
+    return operation();
+  }
+
+  private async createTables(): Promise<void> {
+    const queries = [
+      `CREATE TABLE IF NOT EXISTS pm_threads (
+        irc_nick TEXT PRIMARY KEY,
+        thread_id TEXT NOT NULL,
+        channel_id TEXT NOT NULL,
+        last_activity INTEGER NOT NULL
+      )`,
+      `CREATE TABLE IF NOT EXISTS channel_users (
+        channel TEXT PRIMARY KEY,
+        users TEXT NOT NULL,
+        last_updated INTEGER NOT NULL
+      )`,
+      `CREATE TABLE IF NOT EXISTS message_mappings (
+        discord_message_id TEXT PRIMARY KEY,
+        irc_channel TEXT NOT NULL,
+        irc_message TEXT NOT NULL,
+        sender_nickname TEXT NOT NULL,
+        timestamp INTEGER NOT NULL
+      )`,
+      `CREATE TABLE IF NOT EXISTS metrics (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at INTEGER NOT NULL
+      )`
+    ];
+
+    for (const query of queries) {
+      this.db.run(query);
+    }
+  }
+
+  // PM Thread Management
+  async savePMThread(ircNick: string, threadId: string, channelId: string): Promise<void> {
+    return this.writeWithRetry(() => {
+      this.db.run(
+        'INSERT OR REPLACE INTO pm_threads (irc_nick, thread_id, channel_id, last_activity) VALUES (?, ?, ?, ?)',
+        [ircNick.toLowerCase(), threadId, channelId, Date.now()]
+      );
+    });
+  }
+
+  async getPMThread(ircNick: string): Promise<PMThreadData | null> {
+    const row = this.db.query<PMThreadData, [string]>(
+      'SELECT irc_nick as ircNick, thread_id as threadId, channel_id as channelId, last_activity as lastActivity FROM pm_threads WHERE irc_nick = ?'
+    ).get(ircNick.toLowerCase());
+
+    return row || null;
+  }
+
+  async getAllPMThreads(): Promise<Map<string, string>> {
+    const rows = this.db.query<{ ircNick: string; threadId: string }, []>(
+      'SELECT irc_nick as ircNick, thread_id as threadId FROM pm_threads'
+    ).all();
+
+    const map = new Map<string, string>();
+    for (const row of rows) {
+      map.set(row.ircNick, row.threadId);
+    }
+    return map;
+  }
+
+  async updatePMThreadNick(oldNick: string, newNick: string): Promise<void> {
+    return this.writeWithRetry(() => {
+      this.db.run(
+        'UPDATE pm_threads SET irc_nick = ?, last_activity = ? WHERE irc_nick = ?',
+        [newNick.toLowerCase(), Date.now(), oldNick.toLowerCase()]
+      );
+    });
+  }
+
+  // Channel Users Management
+  async saveChannelUsers(channel: string, users: Set<string>): Promise<void> {
+    return this.writeWithRetry(() => {
+      const usersJson = JSON.stringify(Array.from(users));
+      this.db.run(
+        'INSERT OR REPLACE INTO channel_users (channel, users, last_updated) VALUES (?, ?, ?)',
+        [channel.toLowerCase(), usersJson, Date.now()]
+      );
+    });
+  }
+
+  async getChannelUsers(channel: string): Promise<string[] | null> {
+    const row = this.db.query<{ users: string }, [string]>(
+      'SELECT users FROM channel_users WHERE channel = ?'
+    ).get(channel.toLowerCase());
+
+    return row ? JSON.parse(row.users) : null;
+  }
+
+  async getAllChannelUsers(): Promise<Record<string, string[]>> {
+    const rows = this.db.query<{ channel: string; users: string }, []>(
+      'SELECT channel, users FROM channel_users'
+    ).all();
+
+    const result: Record<string, string[]> = {};
+    for (const row of rows) {
+      result[row.channel] = JSON.parse(row.users);
+    }
+    return result;
+  }
+
+  // Message Mapping (for edit/delete tracking)
+  async saveMessageMapping(
+    discordMessageId: string,
+    ircChannel: string,
+    ircMessage: string,
+    senderNickname: string
+  ): Promise<void> {
+    return this.writeWithRetry(() => {
+      this.db.run(
+        'INSERT OR REPLACE INTO message_mappings (discord_message_id, irc_channel, irc_message, sender_nickname, timestamp) VALUES (?, ?, ?, ?, ?)',
+        [discordMessageId, ircChannel, ircMessage, senderNickname, Date.now()]
+      );
+    });
+  }
+
+  async getMessageMapping(discordMessageId: string): Promise<{
+    ircChannel: string;
+    ircMessage: string;
+    senderNickname: string;
+  } | null> {
+    const row = this.db.query<{
+      irc_channel: string;
+      irc_message: string;
+      sender_nickname: string;
+    }, [string]>(
+      'SELECT irc_channel, irc_message, sender_nickname FROM message_mappings WHERE discord_message_id = ?'
+    ).get(discordMessageId);
+
+    if (!row) return null;
+
+    return {
+      ircChannel: row.irc_channel,
+      ircMessage: row.irc_message,
+      senderNickname: row.sender_nickname
+    };
+  }
+
+  async deleteMessageMapping(discordMessageId: string): Promise<void> {
+    return this.writeWithRetry(() => {
+      this.db.run('DELETE FROM message_mappings WHERE discord_message_id = ?', [discordMessageId]);
+    });
+  }
+
+  // Metrics Storage
+  async saveMetric(key: string, value: string): Promise<void> {
+    return this.writeWithRetry(() => {
+      this.db.run(
+        'INSERT OR REPLACE INTO metrics (key, value, updated_at) VALUES (?, ?, ?)',
+        [key, value, Date.now()]
+      );
+    });
+  }
+
+  async getMetric(key: string): Promise<string | null> {
+    const row = this.db.query<{ value: string }, [string]>(
+      'SELECT value FROM metrics WHERE key = ?'
+    ).get(key);
+
+    return row ? row.value : null;
+  }
+
+  async getAllMetrics(): Promise<Record<string, string>> {
+    const rows = this.db.query<{ key: string; value: string }, []>(
+      'SELECT key, value FROM metrics'
+    ).all();
+
+    const result: Record<string, string> = {};
+    for (const row of rows) {
+      result[row.key] = row.value;
+    }
+    return result;
+  }
+
+  async close(): Promise<void> {
+    if (this.db) {
+      this.db.close();
+      logger.info('Closed SQLite database connection');
+    }
+  }
+
+  /**
+   * Destroy/cleanup method for compatibility
+   */
+  destroy(): void {
+    this.close();
+  }
+}

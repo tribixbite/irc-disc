@@ -1,3 +1,94 @@
+# irc-disc v1.1.6 - Critical Discord Intent Fix & Bun SQLite Support
+
+## ✅ Completed (2025-11-06)
+
+### 🔴 CRITICAL FIX: Missing GUILD_MEMBERS Intent
+**File:** `lib/bot.ts:141-150, 485-494`
+
+**Problem:**
+Bot could not relay messages because the Discord client was missing the `GUILD_MEMBERS` privileged intent. This caused `guild.members.cache` to be empty, breaking:
+- `getDiscordNicknameOnServer()` - couldn't get user nicknames
+- `getDiscordAvatar()` - couldn't get user avatars
+- Mention detection - couldn't find users to mention
+- All code accessing `guild.members.cache` would fail or return undefined
+
+**Root Cause:**
+The refactor from JavaScript to TypeScript added many features that access `guild.members.cache`, but the Discord client initialization only included:
+- `GUILDS`
+- `GUILD_MESSAGES`
+- `GUILD_MESSAGE_REACTIONS`
+
+Missing: `GUILD_MEMBERS` (required for member cache)
+
+**Solution:**
+Added `Intents.FLAGS.GUILD_MEMBERS` to Discord client initialization:
+```typescript
+this.discord = new discord.Client({
+  retryLimit: 3,
+  intents: [
+    Intents.FLAGS.GUILDS,
+    Intents.FLAGS.GUILD_MESSAGES,
+    Intents.FLAGS.GUILD_MESSAGE_REACTIONS,
+    Intents.FLAGS.GUILD_MEMBERS // Required for member cache (nicknames, avatars)
+  ],
+  partials: ['MESSAGE'],
+});
+```
+
+**IMPORTANT:** You must also enable "Server Members Intent" in Discord Developer Portal:
+1. Go to https://discord.com/developers/applications
+2. Select your bot application
+3. Go to "Bot" tab
+4. Under "Privileged Gateway Intents", enable "SERVER MEMBERS INTENT"
+5. Save changes
+
+**Impact:**
+- ✅ Member cache now populates correctly
+- ✅ Nicknames and avatars work
+- ✅ Mention detection works
+- ✅ Message relaying should now function
+
+### ⚡ PERFORMANCE: Bun Native SQLite Support
+**Files:** `lib/persistence-bun.ts` (NEW), `lib/persistence-wrapper.js` (NEW), `lib/persistence-wrapper.d.ts` (NEW)
+
+**Problem:**
+- `sqlite3` is a native Node.js module requiring compilation with node-gyp
+- Doesn't work with Bun runtime
+- Slower than Bun's native SQLite implementation
+
+**Solution:**
+Created dual persistence implementation:
+1. **persistence-bun.ts**: Uses `Bun.Database` (native, synchronous, fast)
+2. **persistence.ts**: Uses `sqlite3` (Node.js, async, requires compilation)
+3. **persistence-wrapper.js**: Runtime detection - loads Bun version if `typeof Bun !== 'undefined'`
+
+**Benefits:**
+- ✅ **Faster**: Bun's SQLite is synchronous and optimized
+- ✅ **No compilation**: Bun.Database is built-in, no node-gyp needed
+- ✅ **Drop-in replacement**: Identical API to sqlite3 version
+- ✅ **Backward compatible**: Node.js users still use sqlite3
+- ✅ **Tested in Termux**: Works perfectly on Android/ARM64
+
+### 🧹 CLEANUP: Removed Bun-Specific Entry Point
+**Removed:** `lib/server.ts`
+
+**Problem:**
+- `lib/server.ts` had `import { serve } from 'bun'` which crashes in Node.js
+- Created confusion about entry points
+- Conflicted with `lib/cli.ts`
+
+**Solution:**
+- Removed `lib/server.ts` entirely
+- Updated `package.json` to use only `lib/cli.ts` as entry point
+- Removed `start:server` script
+
+**Impact:**
+- ✅ Single entry point: `lib/cli.ts`
+- ✅ Works with both Node.js and Bun
+- ✅ No more import crashes
+
+---
+
 # irc-disc v1.1.5 - Join Message Spam Fix
 
 ## ✅ Completed (2025-11-05)

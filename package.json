@@ -23,8 +23,7 @@
   },
   "homepage": "https://github.com/tribixbite/irc-disc#readme",
   "scripts": {
-    "start": "node dist/index.js",
-    "start:server": "bun dist/lib/server.js",
+    "start": "node dist/lib/cli.js",
     "build": "tsc",
     "format": "prettier --write '{lib,test}/**/*.?s'",
     "prepare": "npm run build",

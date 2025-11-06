@@ -12,7 +12,8 @@ import { LRUCache } from 'lru-cache';
 import { logger } from './logger';
 import { validateChannelMapping } from './validators';
 import { formatFromDiscordToIRC, formatFromIRCToDiscord } from './formatting';
-import { PersistenceService } from './persistence';
+// Use runtime-conditional persistence (Bun.Database for Bun, sqlite3 for Node)
+import { PersistenceService } from './persistence-wrapper.js';
 import { registerSlashCommands, handleSlashCommand } from './slash-commands';
 import { MessageSynchronizer } from './message-sync';
 import { RateLimiter, RateLimitConfig } from './rate-limiter';
@@ -141,9 +142,10 @@ class Bot {
     this.discord = new discord.Client({
       retryLimit: 3,
       intents: [
-        Intents.FLAGS.GUILDS, 
+        Intents.FLAGS.GUILDS,
         Intents.FLAGS.GUILD_MESSAGES,
-        Intents.FLAGS.GUILD_MESSAGE_REACTIONS
+        Intents.FLAGS.GUILD_MESSAGE_REACTIONS,
+        Intents.FLAGS.GUILD_MEMBERS // Required for member cache (nicknames, avatars)
       ],
       partials: ['MESSAGE'], // Enable partial message support for edit/delete events
     });
@@ -484,9 +486,10 @@ class Bot {
       this.discord = new discord.Client({
         retryLimit: 3,
         intents: [
-          discord.Intents.FLAGS.GUILDS, 
+          discord.Intents.FLAGS.GUILDS,
           discord.Intents.FLAGS.GUILD_MESSAGES,
-          discord.Intents.FLAGS.GUILD_MESSAGE_REACTIONS
+          discord.Intents.FLAGS.GUILD_MESSAGE_REACTIONS,
+          discord.Intents.FLAGS.GUILD_MEMBERS // Required for member cache
         ],
         partials: ['MESSAGE']
       });
