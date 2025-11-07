@@ -1,6 +1,83 @@
-# irc-disc v1.1.6 - Critical Discord Intent Fix & Bun SQLite Support
+# irc-disc v1.2.0 - Critical Event Loop Fix & Discord Intents
 
-## ✅ Completed (2025-11-06)
+## ✅ Completed (2025-11-06 to 2025-11-07)
+
+### 🔴 CRITICAL FIX: Event Loop Blocking by IRC Client
+**File:** `lib/bot.ts:402-418`
+
+**Problem:**
+The bot would connect to Discord successfully and fire the `ready` event, but then **completely stop processing all Discord events** - no messages, no gateway packets, no heartbeats. The Node.js event loop was being blocked by synchronous operations in the IRC client constructor.
+
+**Root Cause:**
+The `irc.Client` constructor performs synchronous DNS lookups and network operations, blocking the event loop. This prevented Discord.js from processing incoming WebSocket packets, causing the gateway to go silent after connection.
+
+**Diagnosis:**
+Used an event loop "canary" (setInterval that logs every 2 seconds) to detect blocking:
+```typescript
+setInterval(() => {
+  logger.info('[CANARY] Event loop is alive');
+}, 2000);
+```
+Result: Canary never logged after IRC client creation, confirming complete event loop blockage.
+
+**Solution:**
+Wrapped IRC initialization in `setImmediate()` to defer it to the next event loop tick:
+```typescript
+// BEFORE (blocking):
+this.ircClient = new irc.Client(this.server, this.nickname, ircOptions);
+this.attachIRCListeners();
+
+// AFTER (non-blocking):
+setImmediate(() => {
+  this.ircClient = new irc.Client(this.server, this.nickname, ircOptions);
+  this.ircUserManager = new IRCUserManager(this.ircClient, { enableWhois: false });
+  this.attachIRCListeners();
+});
+```
+
+**Impact:**
+- ✅ Event loop now processes Discord.js events correctly
+- ✅ MESSAGE_CREATE events fire as expected
+- ✅ Gateway heartbeats function properly
+- ✅ Bot can receive and relay messages
+- ✅ No more "discord has been silent" warnings
+
+**Testing:**
+- Standalone test bot (Discord-only) worked perfectly ✅
+- Main bot (Discord + IRC) blocked until this fix ✅
+- Event loop canary confirms healthy operation ✅
+
+### 🔴 CRITICAL FIX: Missing MESSAGE_CONTENT Intent
+**File:** `lib/bot.ts:141-150, 485-494`
+
+**Problem:**
+Discord.js v13+ requires the `MESSAGE_CONTENT` privileged intent to access `message.content`. Without it, the bot connects but message content is always empty/undefined.
+
+**Solution:**
+Added `Intents.FLAGS.MESSAGE_CONTENT` to Discord client initialization:
+```typescript
+this.discord = new discord.Client({
+  intents: [
+    Intents.FLAGS.GUILDS,
+    Intents.FLAGS.GUILD_MESSAGES,
+    Intents.FLAGS.GUILD_MESSAGE_REACTIONS,
+    Intents.FLAGS.GUILD_MEMBERS,
+    Intents.FLAGS.MESSAGE_CONTENT // Required for message.content access (Discord.js v13+)
+  ]
+});
+```
+
+**IMPORTANT:** You must also enable "Message Content Intent" in Discord Developer Portal:
+1. Go to https://discord.com/developers/applications
+2. Select your bot application
+3. Go to "Bot" tab
+4. Under "Privileged Gateway Intents", enable "MESSAGE CONTENT INTENT"
+5. Save changes
+
+**Impact:**
+- ✅ `message.content` now accessible
+- ✅ Messages can be read and relayed
+- ✅ Command parsing works
 
 ### 🔴 CRITICAL FIX: Missing GUILD_MEMBERS Intent
 **File:** `lib/bot.ts:141-150, 485-494`

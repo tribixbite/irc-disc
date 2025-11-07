@@ -25,6 +25,13 @@ import { MentionDetector, MentionConfig } from './mention-detector';
 import { StatusNotificationManager } from './status-notifications';
 import { IRCUserManager } from './irc-user-manager';
 
+// CRITICAL DIAGNOSTIC: Catch all unhandled promise rejections
+// A silent rejection could put the process in a zombie state
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('CRITICAL: Unhandled Promise Rejection at:', promise);
+  logger.error('Rejection reason:', reason);
+});
+
 // Polyfill for deprecated util.log (removed in Node.js 24)
 // The irc-upd library still uses it for debug logging
 if (!util.log) {
@@ -145,10 +152,15 @@ class Bot {
         Intents.FLAGS.GUILDS,
         Intents.FLAGS.GUILD_MESSAGES,
         Intents.FLAGS.GUILD_MESSAGE_REACTIONS,
-        Intents.FLAGS.GUILD_MEMBERS // Required for member cache (nicknames, avatars)
+        Intents.FLAGS.GUILD_MEMBERS, // Required for member cache (nicknames, avatars)
+        Intents.FLAGS.MESSAGE_CONTENT // Required for message.content access (Discord.js v13+)
       ],
       partials: ['MESSAGE'], // Enable partial message support for edit/delete events
     });
+
+    // Add unique instance ID for debugging
+    (this.discord as any)._instanceId = Math.random().toString(36).substring(7);
+    logger.info(`[DIAGNOSTIC] Discord Client created with instance ID: ${(this.discord as any)._instanceId}`);
 
     this.server = options.server;
     this.nickname = options.nickname;
@@ -334,9 +346,17 @@ class Bot {
     this.attachDiscordListeners();
 
     try {
-      logger.info('Attempting to log in to Discord...');
+      logger.info(`[DIAGNOSTIC] Logging in to Discord with client instance: ${(this.discord as any)._instanceId}`);
       await this.discord.login(this.discordToken);
-      logger.info('Discord login promise resolved.');
+      logger.info(`[DIAGNOSTIC] Discord login promise resolved for instance: ${(this.discord as any)._instanceId}`);
+
+      // CRITICAL DIAGNOSTIC: Event loop canary to detect blocking
+      // If this stops logging, the event loop is blocked by synchronous code
+      setInterval(() => {
+        logger.info('[CANARY] Event loop is alive');
+      }, 2000);
+      logger.info('[DIAGNOSTIC] Event loop canary started (logs every 2s)');
+
     } catch (error) {
       logger.error('Discord login promise rejected:', error);
       throw error; // Re-throw to ensure the application fails fast
@@ -355,6 +375,8 @@ class Bot {
     }
 
     const ircOptions = {
+      // Spread config first so our critical fixes can override it
+      ...this.ircOptions,
       userName: this.nickname,
       realName: this.nickname,
       channels: this.channels,
@@ -362,8 +384,7 @@ class Bot {
       floodProtectionDelay: 500,
       retryCount: 10,
       autoRenick: true,
-      // options specified in the configuration file override the above defaults
-      ...this.ircOptions,
+      autoConnect: false, // CRITICAL FIX: Must come AFTER spread to override any config setting
     };
 
     // default encoding to UTF-8 so messages to Discord aren't corrupted
@@ -378,17 +399,24 @@ class Bot {
       }
     }
 
-    this.ircClient = new irc.Client(this.server, this.nickname, ircOptions);
+    // CRITICAL FIX: Defer IRC initialization to next event loop tick
+    // The IRC client constructor blocks the event loop synchronously,
+    // starving Discord.js and preventing message events. setImmediate()
+    // allows Discord to process messages before IRC initialization blocks.
+    setImmediate(() => {
+      logger.info('Initializing IRC client in next event loop tick...');
+      this.ircClient = new irc.Client(this.server, this.nickname, ircOptions);
 
-    // Initialize IRC user manager with WHOIS disabled by default
-    // (can be enabled via config to gather extended user info, but may cause spam on some servers)
-    this.ircUserManager = new IRCUserManager(this.ircClient, {
-      enableWhois: false // Disabled to prevent WHOIS timeout spam
+      // Initialize IRC user manager
+      this.ircUserManager = new IRCUserManager(this.ircClient, {
+        enableWhois: false
+      });
+
+      // Attach IRC event listeners
+      this.attachIRCListeners();
+      logger.info('IRC client constructed and listeners attached.');
     });
 
-    // Attach IRC event listeners (Discord listeners already attached before login)
-    this.attachIRCListeners();
-    
     // Start metrics HTTP server if configured
     if (this.metricsServer) {
       this.metricsServer.start();
@@ -489,7 +517,8 @@ class Bot {
           discord.Intents.FLAGS.GUILDS,
           discord.Intents.FLAGS.GUILD_MESSAGES,
           discord.Intents.FLAGS.GUILD_MESSAGE_REACTIONS,
-          discord.Intents.FLAGS.GUILD_MEMBERS // Required for member cache
+          discord.Intents.FLAGS.GUILD_MEMBERS, // Required for member cache
+          discord.Intents.FLAGS.MESSAGE_CONTENT // Required for message.content access
         ],
         partials: ['MESSAGE']
       });
@@ -601,8 +630,31 @@ class Bot {
   }
 
   private attachDiscordListeners() {
+    logger.info('[DIAGNOSTIC] attachDiscordListeners() called - attaching event handlers');
+    logger.info(`[DIAGNOSTIC] Attaching listeners to client instance: ${(this.discord as any)._instanceId}`);
+
+    // CRITICAL DIAGNOSTIC: raw event listener to detect MESSAGE_CREATE gateway packets
+    // This determines if Discord is SENDING events vs if Discord.js is EMITTING them
+    this.discord.on('raw', (packet: any) => {
+      if (packet.t === 'MESSAGE_CREATE') {
+        logger.info(`[RAW] MESSAGE_CREATE gateway packet received from Discord!`);
+        logger.info(`[RAW] Packet channel_id: ${packet.d?.channel_id}, author: ${packet.d?.author?.username}`);
+      }
+    });
+
+    // Debug and warn listeners to verify event emitter health
+    // DIAGNOSTIC: Logging ALL debug events to catch any gateway issues
+    this.discord.on('debug', (info: string) => {
+      logger.info(`[DJS DEBUG] ${info}`);
+    });
+
+    this.discord.on('warn', (warning: string) => {
+      logger.warn(`[DJS WARN] ${warning}`);
+    });
+
     this.discord.on('ready', async () => {
       logger.info('Connected to Discord');
+      logger.info(`[DIAGNOSTIC] ready event fired on client instance: ${(this.discord as any)._instanceId}`);
       
       // Register slash commands when bot is ready
       await registerSlashCommands(this);
@@ -641,6 +693,8 @@ class Bot {
     });
 
     this.discord.on('messageCreate', (message) => {
+      logger.info(`[EVENT] messageCreate fired on client instance: ${(message.client as any)._instanceId}`);
+      logger.info(`[EVENT] Message details - Channel: ${message.channel.id}, Author: ${message.author.tag}, Content: ${message.content?.substring(0, 50) || '(no content)'}`);
       // Quick check: is this a PM thread message?
       if (message.channel &&
           typeof message.channel.isThread === 'function' &&
@@ -659,6 +713,7 @@ class Bot {
         logger.error('Error sending Discord message to IRC:', error);
       });
     });
+    logger.info('[DIAGNOSTIC] messageCreate listener attached');
 
     // Handle slash command interactions
     this.discord.on('interactionCreate', async (interaction) => {
