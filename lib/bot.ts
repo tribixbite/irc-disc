@@ -317,6 +317,39 @@ class Bot {
     this.statusNotifications = new StatusNotificationManager(finalStatusConfig);
   }
 
+  /**
+   * Resolves a hostname to an IP address using `ping` command.
+   * This is a workaround for environments like Termux where Node/Bun's internal
+   * DNS resolver may fail with ECONNREFUSED, but shell commands work fine.
+   * @param hostname The hostname to resolve.
+   * @returns The resolved IP address as a string, or the original hostname on failure.
+   */
+  async resolveViaGetent(hostname: string): Promise<string> {
+    try {
+      // Use ping -c 1 to resolve hostname to IP
+      // ping output includes the resolved IP in parentheses: "PING irc.libera.chat (103.196.37.95)"
+      const proc = Bun.spawn(['ping', '-c', '1', hostname]);
+      const rawOutput = await new Response(proc.stdout).text();
+      const exitCode = await proc.exited;
+
+      // Extract IP from ping output using regex
+      // Match pattern like: PING hostname (IP) or PING IP (IP)
+      const ipMatch = rawOutput.match(/PING [^\s]+ \(([0-9.]+)\)/);
+
+      if (ipMatch && ipMatch[1]) {
+        const ipAddress = ipMatch[1];
+        logger.info(`✅ Successfully resolved ${hostname} to ${ipAddress} via ping.`);
+        return ipAddress;
+      } else {
+        logger.warn(`ping output did not contain IP for ${hostname}. Output: ${rawOutput.substring(0, 200)}. Falling back to hostname.`);
+        return hostname; // Fallback
+      }
+    } catch (error) {
+      logger.error(`Error spawning ping process to resolve ${hostname}:`, error);
+      return hostname; // Fallback on spawn error
+    }
+  }
+
   async connect(): Promise<void> {
     logger.debug('Connecting to IRC and Discord');
     
@@ -403,18 +436,43 @@ class Bot {
     // The IRC client constructor blocks the event loop synchronously,
     // starving Discord.js and preventing message events. setImmediate()
     // allows Discord to process messages before IRC initialization blocks.
-    setImmediate(() => {
-      logger.info('Initializing IRC client in next event loop tick...');
-      this.ircClient = new irc.Client(this.server, this.nickname, ircOptions);
+    setImmediate(async () => {
+      try {
+        logger.info('Initializing IRC client in next event loop tick...');
 
-      // Initialize IRC user manager
-      this.ircUserManager = new IRCUserManager(this.ircClient, {
-        enableWhois: false
-      });
+        // WORKAROUND: Resolve DNS via shell command because Bun/Node DNS fails in Termux
+        // Both Bun's resolver and Node.js dns.lookup() fail with ECONNREFUSED
+        // Shell commands (nc, ping, getent) work fine, so we leverage them
+        const ircServerAddress = await this.resolveViaGetent(this.server);
 
-      // Attach IRC event listeners
-      this.attachIRCListeners();
-      logger.info('IRC client constructed and listeners attached.');
+        // If using secure connection, provide SNI for TLS certificate validation
+        const enhancedOptions = {
+          ...ircOptions,
+          secure: ircOptions.secure ? {
+            servername: this.server // Required for SNI when connecting to IP address
+          } : false
+        };
+
+        this.ircClient = new irc.Client(ircServerAddress, this.nickname, enhancedOptions);
+
+        // Initialize IRC user manager
+        this.ircUserManager = new IRCUserManager(this.ircClient, {
+          enableWhois: false
+        });
+
+        // Attach IRC event listeners BEFORE connecting
+        this.attachIRCListeners();
+        logger.info('IRC client constructed and listeners attached.');
+
+        // Connect to IRC (autoConnect: false means we must connect manually)
+        logger.info(`Connecting to IRC server: ${ircServerAddress} (${this.server})`);
+        this.ircClient.connect(ircOptions.retryCount || 10, () => {
+          // This callback fires upon successful registration to IRC server
+          logger.info(`✅ Successfully connected and registered to IRC server: ${this.server}`);
+        });
+      } catch (error) {
+        logger.error('Failed to initialize IRC client:', error);
+      }
     });
 
     // Start metrics HTTP server if configured

@@ -125,6 +125,69 @@ this.discord = new discord.Client({
 - ✅ Mention detection works
 - ✅ Message relaying should now function
 
+### 🔴 CRITICAL FIX: DNS Resolution Failure in Termux/Android
+**File:** `lib/bot.ts:320-351, 410-450`
+
+**Problem:**
+Both Bun's DNS resolver and Node.js `dns.lookup()` fail with `getaddrinfo ECONNREFUSED` when trying to resolve IRC server hostnames in Termux/Android environment. However, shell commands (`ping`, `nc`) successfully resolve DNS.
+
+**Root Cause:**
+Android/Termux networking stack issues cause JavaScript DNS resolvers (both Bun and Node.js) to fail, while shell-level DNS resolution works perfectly.
+
+**Diagnosis:**
+```bash
+# Shell DNS works fine:
+$ ping -c 1 irc.libera.chat
+PING irc.libera.chat (93.158.237.2) 56(84) bytes of data.
+
+$ nc -zv irc.libera.chat 6697
+Connection to irc.libera.chat 6697 port [tcp/*] succeeded!
+
+# But JavaScript DNS fails:
+getaddrinfo ECONNREFUSED [DNSException: getaddrinfo ECONNREFUSED]
+```
+
+**Solution:**
+Created `resolveViaGetent()` method that shells out to `ping` command to resolve DNS, then extracts the IP address:
+
+```typescript
+async resolveViaGetent(hostname: string): Promise<string> {
+  const proc = Bun.spawn(['ping', '-c', '1', hostname]);
+  const rawOutput = await new Response(proc.stdout).text();
+  const ipMatch = rawOutput.match(/PING [^\s]+ \(([0-9.]+)\)/);
+
+  if (ipMatch && ipMatch[1]) {
+    logger.info(`✅ Successfully resolved ${hostname} to ${ipMatch[1]} via ping.`);
+    return ipMatch[1];
+  }
+  return hostname; // Fallback
+}
+```
+
+Used in IRC initialization with SNI for TLS:
+```typescript
+const ircServerAddress = await this.resolveViaGetent(this.server);
+const enhancedOptions = {
+  ...ircOptions,
+  secure: ircOptions.secure ? {
+    servername: this.server // Required for SNI when connecting to IP
+  } : false
+};
+this.ircClient = new irc.Client(ircServerAddress, this.nickname, enhancedOptions);
+```
+
+**Impact:**
+- ✅ IRC server DNS resolution works in Termux/Android
+- ✅ IRC connection succeeds: `✅ Successfully connected and registered to IRC server`
+- ✅ TLS/SSL connections work with proper SNI
+- ✅ Fallback to hostname if ping fails
+- ✅ Bot now fully functional in Termux environment
+
+**Testing:**
+- DNS resolution via ping: `93.158.237.2` ✅
+- IRC connection established ✅
+- Bot successfully relays messages between Discord and IRC ✅
+
 ### ⚡ PERFORMANCE: Bun Native SQLite Support
 **Files:** `lib/persistence-bun.ts` (NEW), `lib/persistence-wrapper.js` (NEW), `lib/persistence-wrapper.d.ts` (NEW)
 
