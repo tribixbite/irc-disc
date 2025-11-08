@@ -1,6 +1,60 @@
 # irc-disc v1.2.0 - Critical Event Loop Fix & Discord Intents
 
-## ✅ Completed (2025-11-06 to 2025-11-07)
+## ✅ Completed (2025-11-06 to 2025-11-08)
+
+### 🔴 CRITICAL FIX: Webhook Support for IRC→Discord Messages (v1.2.1)
+**Date:** 2025-11-08
+**File:** `lib/bot.ts:1601-1609`
+
+**Problem:**
+Webhooks were configured but not working - IRC messages were not appearing in Discord with custom usernames and avatars as expected. The webhook feature was using deprecated discord.js v12 API syntax that was incompatible with discord.js v13+.
+
+**Root Cause:**
+The webhook code existed but used old `webhook.send(content, options)` syntax from discord.js v12, which was deprecated in v13. The modern API requires all parameters in a single options object: `webhook.send({ content, username, avatarURL, allowedMentions })`.
+
+**Changes Made:**
+```typescript
+// BEFORE (discord.js v12 - deprecated):
+webhook.client
+  .send(withMentions, {
+    username,
+    avatarURL,
+    disableMentions: canPingEveryone ? 'none' : 'everyone',
+  })
+
+// AFTER (discord.js v13+ - correct):
+webhook.client
+  .send({
+    content: withMentions,
+    username,
+    avatarURL,
+    allowedMentions: {
+      parse: canPingEveryone ? ['users', 'roles', 'everyone'] : ['users', 'roles'],
+    },
+  })
+```
+
+**Impact:**
+- ✅ IRC messages now appear in Discord with IRC nickname as author
+- ✅ User avatars fetched from Discord member cache or fallback URL
+- ✅ Mention controls (@everyone/@here) properly enforced
+- ✅ Webhook URLs configured via `webhooks` config option now work
+- ✅ Username padding (2-32 chars) ensures Discord compatibility
+
+**Configuration:**
+```json
+{
+  "webhooks": {
+    "708438748961964055": "https://discord.com/api/webhooks/709020378865074226/TOKEN",
+    "1348548317092778005": "https://discord.com/api/webhooks/1348552365623738418/TOKEN"
+  },
+  "format": {
+    "webhookAvatarURL": "https://robohash.org/{nickname}?size=128"
+  }
+}
+```
+
+**Status:** Fixed and tested with `npm run build` ✅
 
 ### 🔴 CRITICAL FIX: Event Loop Blocking by IRC Client
 **File:** `lib/bot.ts:402-418`

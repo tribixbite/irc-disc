@@ -1599,10 +1599,13 @@ class Bot {
         .substring(0, USERNAME_MAX_LENGTH)
         .padEnd(USERNAME_MIN_LENGTH, '_');
       webhook.client
-        .send(withMentions, {
+        .send({
+          content: withMentions,
           username,
           avatarURL,
-          disableMentions: canPingEveryone ? 'none' : 'everyone',
+          allowedMentions: {
+            parse: canPingEveryone ? ['users', 'roles', 'everyone'] : ['users', 'roles'],
+          },
         })
         .catch((error) => {
           logger.error(error);
