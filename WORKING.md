@@ -123,6 +123,17 @@ logger.info(`Using IRC text format: ${this.formatIRCText}`);
 - ✅ Debug logging shows what format template is active
 - ✅ All format customization options now work
 
+**Additional Fields Added to Schema:**
+After discovering the `format` stripping issue, comprehensive audit revealed Zod was also stripping:
+- `ircOptions` - IRC client configuration (debug, retryCount, floodProtection, etc.)
+- `ignoreUsers` - User filtering (irc, discord, discordIds arrays)
+- `autoSendCommands` - Legacy IRC commands on connect
+- `ircNickColors` - Custom IRC nickname color palette
+- `announceSelfJoin` - Bot self-join announcements
+- `dbPath` - Database persistence path
+
+All fields now preserved during config validation.
+
 **Verification:**
 ```
 $ npm run build && bun dist/lib/cli.js --config config.json

@@ -148,6 +148,19 @@ export const configSchema = z.object({
     password: z.string().min(1)
   }).optional(),
 
+  // IRC client options (passed to node-irc)
+  ircOptions: z.record(z.string(), z.unknown()).optional(),
+
+  // Auto-send commands on IRC connect (legacy support)
+  autoSendCommands: z.array(z.array(z.string())).optional(),
+
+  // User ignore lists
+  ignoreUsers: z.object({
+    irc: z.array(z.string()).optional(),
+    discord: z.array(z.string()).optional(),
+    discordIds: z.array(z.string()).optional()
+  }).optional(),
+
   // Required Discord settings
   discordToken: z.string().min(1),
 
@@ -179,9 +192,14 @@ export const configSchema = z.object({
 
   // Formatting and behavior
   ircNickColor: z.boolean().optional(),
+  ircNickColors: z.array(z.string()).optional(),
   ircStatusNotices: z.boolean().optional(),
+  announceSelfJoin: z.boolean().optional(),
   parallelPingFix: z.boolean().optional(),
   commandCharacters: z.array(z.string()).optional(),
+
+  // Persistence
+  dbPath: z.string().optional(),
 
   // Logging
   logLevel: z.enum(['error', 'warn', 'info', 'debug']).optional()
