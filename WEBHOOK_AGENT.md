@@ -1,6 +1,6 @@
 # Webhook Feature Implementation Agent
 
-## Status: IN PROGRESS
+## Status: ✅ COMPLETED
 
 ## Objective
 Implement Discord webhook support for IRC→Discord messages to display IRC users as regular Discord users with custom names and avatars.
@@ -22,39 +22,39 @@ Implement Discord webhook support for IRC→Discord messages to display IRC user
 ### Phase 1: Setup ✅
 - [x] Create WEBHOOK_SPEC.md with requirements
 - [x] Create WEBHOOK_AGENT.md for progress tracking
-- [ ] Read bot.ts to understand current structure
+- [x] Read bot.ts to understand current structure
 
-### Phase 2: Type Definitions & Properties
-- [ ] Add WebhookClient import from discord.js
-- [ ] Add webhook property types to Bot class
-- [ ] Add webhook-related config properties
+### Phase 2: Type Definitions & Properties ✅
+- [x] Add WebhookClient import from discord.js (already present)
+- [x] Add webhook property types to Bot class (already present)
+- [x] Add webhook-related config properties (already present)
 
-### Phase 3: Initialization
-- [ ] Parse webhookOptions from config in constructor
-- [ ] Initialize webhooks Map in constructor
-- [ ] Add webhook setup in connect() method
-- [ ] Log webhook initialization status
+### Phase 3: Initialization ✅
+- [x] Parse webhookOptions from config in constructor (already present)
+- [x] Initialize webhooks Map in constructor (already present)
+- [x] Add webhook setup in connect() method (already present)
+- [x] Log webhook initialization status (already present)
 
-### Phase 4: Helper Methods
-- [ ] Implement findWebhook(ircChannel) method
-- [ ] Implement getDiscordAvatar(nick, channel) method
-- [ ] Add username padding utility (2-32 chars)
+### Phase 4: Helper Methods ✅
+- [x] Implement findWebhook(ircChannel) method (already present bot.ts:1392-1395)
+- [x] Implement getDiscordAvatar(nick, channel) method (already present bot.ts:1397-1433)
+- [x] Add username padding utility (2-32 chars) (already present bot.ts:1597-1599)
 
-### Phase 5: Message Handler Integration
-- [ ] Locate IRC message handler (where messages sent to Discord)
-- [ ] Add webhook availability check
-- [ ] Implement webhook.send() path with modern syntax
-- [ ] Preserve existing fallback path for non-webhook channels
-- [ ] Preserve mention conversion logic
+### Phase 5: Message Handler Integration ✅
+- [x] Locate IRC message handler (sendToDiscord bot.ts:1580-1619)
+- [x] Add webhook availability check (already present)
+- [x] Fix webhook.send() to use modern discord.js v13+ syntax (FIXED bot.ts:1601-1609)
+- [x] Preserve existing fallback path for non-webhook channels (already present)
+- [x] Preserve mention conversion logic (already present)
 
-### Phase 6: Testing & Documentation
-- [ ] Build TypeScript (npm run build)
-- [ ] Test with real Discord webhook
-- [ ] Verify username override works
-- [ ] Verify avatar override works
-- [ ] Verify mention handling preserved
-- [ ] Update WORKING.md with implementation notes
-- [ ] Create conventional commit
+### Phase 6: Testing & Documentation ✅
+- [x] Build TypeScript (npm run build) - SUCCESS
+- [x] Test with real Discord webhook - USER CONFIRMED WORKING
+- [x] Verify username override works - USER CONFIRMED
+- [x] Verify avatar override works - USER CONFIRMED
+- [x] Verify mention handling preserved - PRESERVED
+- [x] Update WORKING.md with implementation notes - COMPLETE
+- [x] Create conventional commit - COMPLETE (2 commits)
 
 ## Implementation Notes
 
@@ -88,10 +88,24 @@ const paddedUsername = username.padEnd(2, '_').slice(0, 32);
 ```
 
 ## Current Blocker
-None - ready to implement
+None - implementation complete ✅
 
-## Next Action
-Read bot.ts to locate IRC message handler and understand current message flow
+## Final Status
+All implementation phases completed:
+- ✅ Webhook code located (bot.ts:1580-1619)
+- ✅ Helper methods verified (findWebhook, getDiscordAvatar)
+- ✅ Fixed discord.js v12→v13 API migration
+- ✅ Built and tested successfully
+- ✅ Documentation updated (WORKING.md)
+- ✅ Conventional commits created
+- ✅ User confirmed webhooks working
+
+## Discord→IRC Format Issue
+User reported duplicate username in IRC messages. Analysis shows:
+- Config correctly set to `"ircText": "{$text}"` (no username prefix)
+- Bot default is `'<{$displayUsername}> {$text}'` but config overrides it
+- Issue likely requires bot restart to apply config changes
+- Documented pattern variables and recommendations in WORKING.md
 
 ## Rollback Plan
 If implementation fails:
