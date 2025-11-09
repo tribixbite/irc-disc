@@ -56,6 +56,62 @@ webhook.client
 
 **Status:** Fixed and tested with `npm run build` ✅
 
+### Version Printing & Logging Enhancement (v1.2.1)
+**Date:** 2025-11-09
+**File:** `lib/cli.ts:11-14, 117-118`
+
+**Changes Made:**
+Added version number and log level display on bot startup for better debugging and version tracking.
+
+```typescript
+// Load package.json for version info
+const packageJson: { version: string } = JSON.parse(
+  fs.readFileSync(join(__dirname, '../package.json'), 'utf8')
+);
+
+// Print version and logging info
+logger.info(`irc-disc v${packageJson.version}`);
+logger.info(`Log level: ${logger.level} (set NODE_ENV=development for debug logs)`);
+```
+
+**Impact:**
+- ✅ Bot now prints version number on startup
+- ✅ Shows current log level and how to enable debug logging
+- ✅ Uses `fs.readFileSync` to avoid TypeScript CommonJS/import.meta limitations
+
+**Verbose Logging:**
+Set `NODE_ENV=development` to enable debug-level logging:
+```bash
+NODE_ENV=development bun dist/lib/cli.js --config config.json
+```
+
+### Discord→IRC Message Format Configuration
+**File:** `lib/bot.ts:199, 1293`
+
+**Configuration:**
+Discord→IRC message formatting is controlled by the `format.ircText` config option:
+
+```json
+{
+  "format": {
+    "ircText": "{$text}",  // Recommended: Just message text (no username prefix)
+    // Default if not set: "<{$displayUsername}> {$text}" (adds username prefix)
+    "urlAttachment": "{$attachmentURL}"
+  }
+}
+```
+
+**Pattern Variables:**
+- `{$text}` - Message content (after Discord→IRC formatting conversion)
+- `{$displayUsername}` - Discord nickname with IRC color codes (if enabled)
+- `{$author}` - Plain Discord nickname
+- `{$nickname}` - Same as author
+- `{$discordChannel}` - Discord channel name (e.g. #general)
+- `{$ircChannel}` - IRC channel name (e.g. #irc)
+
+**Recommendation:**
+Use `"ircText": "{$text}"` to avoid duplicate usernames in IRC. IRC protocol already shows `<bot_nick>` prefix, so adding `<{$displayUsername}>` creates redundancy: `<bot_nick> <discord_user> message`.
+
 ### 🔴 CRITICAL FIX: Event Loop Blocking by IRC Client
 **File:** `lib/bot.ts:402-418`
 

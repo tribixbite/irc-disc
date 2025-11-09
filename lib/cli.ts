@@ -1,12 +1,17 @@
 #!/usr/bin/env node
 
 import fs from 'node:fs';
-import { resolve } from 'node:path';
+import { resolve, join } from 'node:path';
 import stripJsonComments from 'strip-json-comments';
 import * as helpers from './helpers';
 import { logger } from './logger';
 import { validateConfig } from './config/schema';
 import { ZodError } from 'zod';
+
+// Load package.json for version info
+const packageJson: { version: string } = JSON.parse(
+  fs.readFileSync(join(__dirname, '../package.json'), 'utf8')
+);
 
 // Global error handlers for production stability
 process.on('uncaughtException', (error: Error, origin: string) => {
@@ -108,6 +113,10 @@ function applyEnvironmentOverrides(config: any): any {
 }
 
 export async function run(): Promise<void> {
+  // Print version and logging info
+  logger.info(`irc-disc v${packageJson.version}`);
+  logger.info(`Log level: ${logger.level} (set NODE_ENV=development for debug logs)`);
+
   const args = process.argv.slice(2);
   let configPath = 'config.json'; // Default to config.json in cwd
 
