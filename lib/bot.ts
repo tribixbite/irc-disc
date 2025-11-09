@@ -196,7 +196,9 @@ class Bot {
     // "{$keyName}" => "variableValue"
     // displayUsername: nickname with wrapped colors
     // attachmentURL: the URL of the attachment (only applicable in formatURLAttachment)
+    logger.debug('format.ircText from config:', JSON.stringify(this.format.ircText));
     this.formatIRCText = this.format.ircText || '<{$displayUsername}> {$text}';
+    logger.info(`Using IRC text format: ${this.formatIRCText}`);
     this.formatURLAttachment =
       this.format.urlAttachment || '<{$displayUsername}> {$attachmentURL}';
 

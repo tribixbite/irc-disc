@@ -85,6 +85,50 @@ Set `NODE_ENV=development` to enable debug-level logging:
 NODE_ENV=development bun dist/lib/cli.js --config config.json
 ```
 
+### 🔴 CRITICAL FIX: Config Schema Stripping `format` Field (v1.2.1)
+**Date:** 2025-11-09
+**Files:** `lib/config/schema.ts:171-178`, `lib/bot.ts:199-201`
+
+**Problem:**
+User's `format.ircText` config setting was being **silently ignored**, causing duplicate usernames in IRC messages (`<bot_nick> <discord_user> message`) even when config correctly specified `"{$text}"`.
+
+**Root Cause:**
+The Zod config schema (`configSchema`) did not include a `format` field. When `validateConfig()` ran in cli.ts (line 190), Zod's `.parse()` method **stripped out the entire `format` object** from the config, causing bot to always use the default `'<{$displayUsername}> {$text}'`.
+
+**Fix:**
+Added `format` field to Zod schema with all format options:
+
+```typescript
+// lib/config/schema.ts:171-178
+format: z.object({
+  ircText: z.string().optional(),
+  urlAttachment: z.string().optional(),
+  discord: z.string().optional(),
+  commandPrelude: z.union([z.string(), z.boolean()]).optional(),
+  webhookAvatarURL: z.string().optional()
+}).optional(),
+```
+
+Added debug logging to verify config loading:
+```typescript
+// lib/bot.ts:199-201
+logger.debug('format.ircText from config:', JSON.stringify(this.format.ircText));
+this.formatIRCText = this.format.ircText || '<{$displayUsername}> {$text}';
+logger.info(`Using IRC text format: ${this.formatIRCText}`);
+```
+
+**Impact:**
+- ✅ Config `format.ircText` now respected
+- ✅ Duplicate usernames fixed when using `"{$text}"`
+- ✅ Debug logging shows what format template is active
+- ✅ All format customization options now work
+
+**Verification:**
+```
+$ npm run build && bun dist/lib/cli.js --config config.json
+2025-11-09T18:14:24.596Z [32minfo[39m: Using IRC text format: {$text}
+```
+
 ### Discord→IRC Message Format Configuration
 **File:** `lib/bot.ts:199, 1293`
 

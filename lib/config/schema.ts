@@ -168,6 +168,15 @@ export const configSchema = z.object({
       .refine(isLikelySafeUrl, { message: 'Webhook URLs must be public (not localhost or private IP)' })
   ).optional(),
 
+  // Message formatting templates
+  format: z.object({
+    ircText: z.string().optional(),
+    urlAttachment: z.string().optional(),
+    discord: z.string().optional(),
+    commandPrelude: z.union([z.string(), z.boolean()]).optional(),
+    webhookAvatarURL: z.string().optional()
+  }).optional(),
+
   // Formatting and behavior
   ircNickColor: z.boolean().optional(),
   ircStatusNotices: z.boolean().optional(),
