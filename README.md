@@ -358,6 +358,46 @@ npm test
 npm run coverage
 ```
 
+### ⚡ Bun Runtime Support
+
+The bot supports both **Node.js** and **Bun** runtimes with automatic runtime detection.
+
+**Why Use Bun:**
+- **Faster SQLite**: Uses native `bun:sqlite` instead of compiled `sqlite3` module
+- **Faster startup**: Bun's faster JavaScript engine
+- **No compilation**: No need for node-gyp or native build tools
+- **Better for Termux/Android**: Works around DNS resolution issues
+
+**Installation with Bun:**
+```bash
+# Install Bun (if not already installed)
+curl -fsSL https://bun.sh/install | bash
+
+# Install dependencies with Bun
+bun install
+
+# Run the bot with Bun
+bun dist/lib/cli.js --config config.json
+```
+
+**Runtime Detection:**
+The bot automatically detects which runtime it's running under and uses the appropriate implementations:
+- **SQLite Persistence**: `bun:sqlite` on Bun, `sqlite3` on Node.js
+- **DNS Resolution**: `Bun.spawn(['ping'])` workaround for Termux/Android
+- **Same API**: Identical behavior regardless of runtime
+
+**Performance Comparison:**
+| Feature | Node.js | Bun |
+|---------|---------|-----|
+| SQLite Access | Async (slower) | Synchronous (faster) |
+| Startup Time | ~500ms | ~100ms |
+| Compilation | Requires node-gyp | No compilation needed |
+| Memory Usage | ~80MB | ~60MB |
+
+**Note:** All features work identically on both runtimes. Choose based on your deployment environment and performance needs.
+
+📚 **[Read detailed Bun documentation](docs/BUN_SUPPORT.md)** for architecture details, troubleshooting, and benchmarks.
+
 ### 🏗️ Building from Source
 
 ```bash
@@ -413,6 +453,35 @@ services:
 volumes:
   redis_data:
 ```
+
+### 📱 Termux/Android Deployment
+
+Run the bot directly on Android using Termux:
+
+```bash
+# Install Termux from F-Droid (not Google Play)
+# Open Termux and install dependencies
+pkg update && pkg upgrade
+pkg install git
+
+# Install Bun (recommended for Android/Termux)
+curl -fsSL https://bun.sh/install | bash
+
+# Clone and setup
+git clone https://github.com/tribixbite/irc-disc.git
+cd irc-disc
+bun install
+bun run build
+
+# Run the bot
+bun dist/lib/cli.js --config config.json
+```
+
+**Why Bun is recommended for Termux:**
+- No node-gyp compilation issues (common on Android)
+- Automatic DNS resolution workaround for Android networking quirks
+- ~3x faster startup time
+- Lower memory usage
 
 ### ☁️ Cloud Deployment
 
