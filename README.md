@@ -9,9 +9,24 @@
 
 *Seamlessly synchronize messages, manage channels, and maintain full IRC feature parity within Discord*
 
-[🚀 Quick Start](#-quick-start) • [📖 Documentation](#-documentation) • [⚙️ Configuration](#️-configuration) • [🎯 Features](#-features) • [🛠️ Contributing](#️-contributing)
+[🚀 Quick Start](#-quick-start) • [📖 Documentation](#-documentation) • [⚙️ Configuration](#️-configuration) • [🎯 Features](#-features) • [📋 Changelog](CHANGELOG.md) • [🛠️ Contributing](#️-contributing)
 
 </div>
+
+---
+
+## 🔔 What's New in v1.2.1
+
+**Critical Bug Fixes:**
+- Fixed config schema stripping essential fields (format, ircOptions, ignoreUsers, etc.)
+- Fixed duplicate usernames in IRC messages when using custom `format.ircText`
+- Updated webhook API to discord.js v13+ syntax
+
+**Improvements:**
+- Version and log level printed on startup
+- Enhanced config validation with detailed error messages
+
+[📋 See full changelog](CHANGELOG.md)
 
 ---
 
