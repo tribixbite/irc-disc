@@ -1,6 +1,24 @@
-# irc-disc v1.2.0 - Critical Event Loop Fix & Discord Intents
+# irc-disc v1.2.1 - Config Schema Fixes & Documentation
 
-## ✅ Completed (2025-11-06 to 2025-11-08)
+## ✅ v1.2.1 Release Ready for npm Publish (2025-11-09)
+
+**Release Status:** READY FOR PUBLISHING
+- ✅ Version bumped to 1.2.1 in package.json
+- ✅ All critical config schema fixes committed
+- ✅ CHANGELOG.md created with complete v1.2.1 release notes
+- ✅ README.md updated with "What's New" section
+- ✅ TypeScript build successful
+- ✅ npm login verified (as willstone)
+- ✅ Package contents verified with `npm pack --dry-run`
+
+**Publishing Commands:**
+```bash
+npm publish
+git push origin main
+git push origin v1.2.1
+```
+
+## ✅ Completed (2025-11-06 to 2025-11-09)
 
 ### 🔴 CRITICAL FIX: Webhook Support for IRC→Discord Messages (v1.2.1)
 **Date:** 2025-11-08
