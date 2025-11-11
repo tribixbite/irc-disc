@@ -1478,16 +1478,25 @@ export const ircUserInfoCommand: SlashCommand = {
   async execute(interaction: CommandInteraction, bot: Bot) {
     // Admin permission check
     if (!interaction.memberPermissions?.has(Permissions.FLAGS.ADMINISTRATOR)) {
-      await interaction.reply({ 
-        content: '❌ You need Administrator permissions to use this command.', 
-        ephemeral: true 
+      await interaction.reply({
+        content: '❌ You need Administrator permissions to use this command.',
+        ephemeral: true
+      });
+      return;
+    }
+
+    // IRC connection check
+    if (!bot.isIRCConnected()) {
+      await interaction.reply({
+        content: '❌ **IRC Not Connected**\n\nThe IRC connection is currently down. Please wait for reconnection or check bot status.',
+        ephemeral: true
       });
       return;
     }
 
     try {
       const subcommand = interaction.options.getSubcommand();
-      
+
       switch (subcommand) {
         case 'lookup': {
           const nick = interaction.options.getString('nick', true);
@@ -1735,16 +1744,25 @@ export const ircChannelInfoCommand: SlashCommand = {
   async execute(interaction: CommandInteraction, bot: Bot) {
     // Admin permission check
     if (!interaction.memberPermissions?.has(Permissions.FLAGS.ADMINISTRATOR)) {
-      await interaction.reply({ 
-        content: '❌ You need Administrator permissions to use this command.', 
-        ephemeral: true 
+      await interaction.reply({
+        content: '❌ You need Administrator permissions to use this command.',
+        ephemeral: true
+      });
+      return;
+    }
+
+    // IRC connection check
+    if (!bot.isIRCConnected()) {
+      await interaction.reply({
+        content: '❌ **IRC Not Connected**\n\nThe IRC connection is currently down. Please wait for reconnection or check bot status.',
+        ephemeral: true
       });
       return;
     }
 
     try {
       const subcommand = interaction.options.getSubcommand();
-      
+
       switch (subcommand) {
         case 'info': {
           const channelName = interaction.options.getString('channel', true);
@@ -1953,20 +1971,37 @@ export const ircWhoCommand: SlashCommand = {
   async execute(interaction: CommandInteraction, bot: Bot) {
     // Admin permission check
     if (!interaction.memberPermissions?.has(Permissions.FLAGS.ADMINISTRATOR)) {
-      await interaction.reply({ 
-        content: '❌ You need Administrator permissions to use this command.', 
-        ephemeral: true 
+      await interaction.reply({
+        content: '❌ You need Administrator permissions to use this command.',
+        ephemeral: true
+      });
+      return;
+    }
+
+    // IRC connection check
+    if (!bot.isIRCConnected()) {
+      await interaction.reply({
+        content: '❌ **IRC Not Connected**\n\nThe IRC connection is currently down. Please wait for reconnection or check bot status.',
+        ephemeral: true
       });
       return;
     }
 
     try {
       const pattern = interaction.options.getString('pattern', true);
-      
+
       await interaction.deferReply({ ephemeral: true });
-      
+
       try {
-        const users = await bot.ircUserManager.whoQuery(pattern);
+        // Add timeout protection for WHO query (max 30 seconds)
+        const whoWithTimeout = Promise.race([
+          bot.ircUserManager.whoQuery(pattern),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('IRC WHO query timed out after 30s')), 30000)
+          )
+        ]);
+
+        const users = await whoWithTimeout;
         
         if (users.length === 0) {
           await interaction.editReply({ 
@@ -2119,27 +2154,36 @@ export const ircCommandCommand: SlashCommand = {
   async execute(interaction: CommandInteraction, bot: Bot) {
     // Admin permission check
     if (!interaction.memberPermissions?.has(Permissions.FLAGS.ADMINISTRATOR)) {
-      await interaction.reply({ 
-        content: '❌ You need Administrator permissions to use this command.', 
-        ephemeral: true 
+      await interaction.reply({
+        content: '❌ You need Administrator permissions to use this command.',
+        ephemeral: true
+      });
+      return;
+    }
+
+    // IRC connection check
+    if (!bot.isIRCConnected()) {
+      await interaction.reply({
+        content: '❌ **IRC Not Connected**\n\nThe IRC connection is currently down. Cannot send IRC commands.',
+        ephemeral: true
       });
       return;
     }
 
     try {
       const subcommand = interaction.options.getSubcommand();
-      
+
       switch (subcommand) {
         case 'send': {
           const command = interaction.options.getString('command', true).toUpperCase();
           const args = interaction.options.getString('arguments');
-          
+
           // Basic safety checks
           const dangerousCommands = ['QUIT', 'SQUIT', 'CONNECT', 'OPER'];
           if (dangerousCommands.includes(command)) {
-            await interaction.reply({ 
+            await interaction.reply({
               content: `❌ **Command Blocked**\n\nThe command \`${command}\` is not allowed for safety reasons.`,
-              ephemeral: true 
+              ephemeral: true
             });
             return;
           }
