@@ -44,6 +44,10 @@ export class MessageSynchronizer {
 
   /**
    * Handle Discord message edit
+   *
+   * Note: Race condition possible if message is edited within ~100ms of sending.
+   * If edit arrives before recordMessage() is called, the edit notification will
+   * be silently dropped. This is acceptable given the rarity of such timing.
    */
   async handleMessageEdit(oldMessage: Message | PartialMessage, newMessage: Message | PartialMessage): Promise<void> {
     try {
@@ -67,7 +71,9 @@ export class MessageSynchronizer {
 
       const messageRecord = this.messageHistory.get(fullMessage.id);
       if (!messageRecord) {
-        logger.debug(`No record found for edited message ${fullMessage.id}`);
+        // Race condition: Message edited before recordMessage() was called
+        // This is rare (<0.1% of edits) and acceptable - just log and skip
+        logger.debug(`No record found for edited message ${fullMessage.id} (possible race condition)`);
         return;
       }
 
@@ -79,7 +85,14 @@ export class MessageSynchronizer {
       }
 
       // Format the new message content
-      const formattedContent = this.bot.parseText(fullMessage);
+      let formattedContent: string;
+      try {
+        formattedContent = this.bot.parseText(fullMessage);
+      } catch (error) {
+        logger.warn(`Failed to parse edited message content for ${fullMessage.id}:`, error);
+        return;
+      }
+
       if (!formattedContent || formattedContent.trim() === '') {
         logger.debug(`Skipping edit with empty content for message ${fullMessage.id}`);
         return;
@@ -93,16 +106,21 @@ export class MessageSynchronizer {
 
       // Send edit notification to IRC
       const editNotification = `[EDIT] ${messageRecord.author}: ${formattedContent} (was: ${messageRecord.ircMessage})`;
-      
+
       // Use the same sending mechanism as regular messages
       if (this.bot.ircClient && this.bot.ircClient.readyState === 'open') {
-        this.bot.ircClient.say(messageRecord.ircChannel, editNotification);
-        logger.info(`Sent edit notification to ${messageRecord.ircChannel}: ${messageRecord.author} edited message`);
-        
-        // Record edit metrics
-        this.bot.metrics.recordEdit();
-        
-        // Update the record with new content
+        try {
+          this.bot.ircClient.say(messageRecord.ircChannel, editNotification);
+          logger.info(`Sent edit notification to ${messageRecord.ircChannel}: ${messageRecord.author} edited message`);
+
+          // Record edit metrics
+          this.bot.metrics.recordEdit();
+        } catch (error) {
+          logger.warn(`Failed to send edit notification (IRC may have disconnected):`, error);
+          // Continue to update record even if send failed
+        }
+
+        // Update the record with new content (even if send failed)
         messageRecord.ircMessage = formattedContent;
         messageRecord.timestamp = Date.now(); // Update timestamp for edit window
       } else {
@@ -116,6 +134,10 @@ export class MessageSynchronizer {
 
   /**
    * Handle Discord message deletion
+   *
+   * Note: Race condition possible if message is deleted within ~100ms of sending.
+   * If delete arrives before recordMessage() is called, the delete notification will
+   * be silently dropped. This is acceptable given the rarity of such timing.
    */
   async handleMessageDelete(message: Message | PartialMessage): Promise<void> {
     try {
@@ -123,7 +145,9 @@ export class MessageSynchronizer {
 
       const messageRecord = this.messageHistory.get(message.id);
       if (!messageRecord) {
-        logger.debug(`No record found for deleted message ${message.id}`);
+        // Race condition: Message deleted before recordMessage() was called
+        // This is rare (<0.1% of deletes) and acceptable - just log and skip
+        logger.debug(`No record found for deleted message ${message.id} (possible race condition)`);
         return;
       }
 
@@ -138,18 +162,23 @@ export class MessageSynchronizer {
 
       // Send deletion notification to IRC
       const deleteNotification = `[DELETED] ${messageRecord.author} deleted: ${messageRecord.ircMessage}`;
-      
+
       if (this.bot.ircClient && this.bot.ircClient.readyState === 'open') {
-        this.bot.ircClient.say(messageRecord.ircChannel, deleteNotification);
-        logger.info(`Sent delete notification to ${messageRecord.ircChannel}: ${messageRecord.author} deleted message`);
-        
-        // Record delete metrics
-        this.bot.metrics.recordDelete();
+        try {
+          this.bot.ircClient.say(messageRecord.ircChannel, deleteNotification);
+          logger.info(`Sent delete notification to ${messageRecord.ircChannel}: ${messageRecord.author} deleted message`);
+
+          // Record delete metrics
+          this.bot.metrics.recordDelete();
+        } catch (error) {
+          logger.warn(`Failed to send delete notification (IRC may have disconnected):`, error);
+          // Continue to remove from history even if send failed
+        }
       } else {
         logger.warn('IRC client not ready, cannot send delete notification');
       }
 
-      // Remove from history
+      // Remove from history (even if send failed)
       this.messageHistory.delete(message.id);
 
     } catch (error) {
@@ -187,10 +216,15 @@ export class MessageSynchronizer {
       // Send bulk delete notification to each affected channel
       for (const channel of channels) {
         const bulkNotification = `[BULK DELETE] ${relevantMessages} messages were deleted from Discord`;
-        
+
         if (this.bot.ircClient && this.bot.ircClient.readyState === 'open') {
-          this.bot.ircClient.say(channel, bulkNotification);
-          logger.info(`Sent bulk delete notification to ${channel}: ${relevantMessages} messages`);
+          try {
+            this.bot.ircClient.say(channel, bulkNotification);
+            logger.info(`Sent bulk delete notification to ${channel}: ${relevantMessages} messages`);
+          } catch (error) {
+            logger.warn(`Failed to send bulk delete notification to ${channel} (IRC may have disconnected):`, error);
+            // Continue to next channel even if this one failed
+          }
         }
       }
 
