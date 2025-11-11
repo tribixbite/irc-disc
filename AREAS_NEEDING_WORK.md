@@ -9,21 +9,21 @@ Analysis of irc-disc codebase identifying areas that need improvement or fixing.
 
 ## 🔴 High Priority
 
-### 1. Other Slash Commands Need IRC Connection Protection
+### 1. ✅ COMPLETED - Other Slash Commands Need IRC Connection Protection
 
 **Issue:** Only `/irc-channels` has IRC connection checks and timeout protection. Other commands that use IRC are vulnerable to the same issues.
 
 **Affected Commands:**
-- `/irc-users lookup` - Calls `bot.ircUserManager.getUserInfo()` without connection check
-- `/irc-users search` - Calls `bot.ircUserManager.searchUsers()` without connection check
-- `/irc-users stats` - Calls `bot.ircUserManager.getStats()` without connection check
-- `/irc-channel-info` - Calls `bot.ircUserManager.getChannelInfo()` without connection check
-- `/irc-who <pattern>` - Calls `bot.ircUserManager.whoQuery()` - **NEEDS TIMEOUT** (sends IRC WHO)
-- `/irc-command send` - Sends raw IRC commands without connection check
+- ✅ `/irc-users lookup` - Added connection check at lib/slash-commands.ts:1488
+- ✅ `/irc-users search` - Added connection check at lib/slash-commands.ts:1488
+- ✅ `/irc-users stats` - Added connection check at lib/slash-commands.ts:1488
+- ✅ `/irc-channel-info` - Added connection check at lib/slash-commands.ts:1754
+- ✅ `/irc-who <pattern>` - Added connection check + 30s timeout at lib/slash-commands.ts:1981,1996
+- ✅ `/irc-command send` - Added connection check at lib/slash-commands.ts:2164
 
-**Solution Needed:**
+**Solution Implemented:**
 ```typescript
-// Add to each IRC-dependent command:
+// Added to each IRC-dependent command:
 if (!bot.isIRCConnected()) {
   await interaction.reply({
     content: '❌ IRC Not Connected',
@@ -32,14 +32,14 @@ if (!bot.isIRCConnected()) {
   return;
 }
 
-// Add timeout for async IRC operations:
+// Added timeout for /irc-who:
 const result = await Promise.race([
   bot.ircUserManager.whoQuery(pattern),
   new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 30000))
 ]);
 ```
 
-**Estimated Work:** 2-3 hours to add protection to all IRC-dependent commands
+**Completed:** 2025-11-11 - All IRC-dependent slash commands now protected
 
 ---
 
@@ -290,14 +290,14 @@ async cleanup(): Promise<void> {
 - 🟢 Low: 8 (metrics, validation, graceful shutdown, minor enhancements)
 
 **Most Critical:**
-1. Add IRC connection checks to all IRC-dependent slash commands
-2. Add timeout protection to `/irc-who` command
-3. Fix missing `cleanup()` in Bun persistence implementation
+1. ✅ Add IRC connection checks to all IRC-dependent slash commands
+2. ✅ Add timeout protection to `/irc-who` command
+3. ✅ Fix missing `cleanup()` in Bun persistence implementation
 4. Test and verify recovery manager actually reconnects IRC
 
 **Quick Wins:**
-- Add `cleanup()` to persistence-bun.ts (15 min)
-- Add SIGTERM/SIGINT handlers (15 min)
+- ✅ Add `cleanup()` to persistence-bun.ts (15 min)
+- ✅ Add SIGTERM/SIGINT handlers (15 min)
 - Add IRC health metrics to Prometheus (30 min)
 
 ---
@@ -307,13 +307,14 @@ async cleanup(): Promise<void> {
 **Recommended Order:**
 1. ✅ **DONE** - Add IRC connection monitoring
 2. ✅ **DONE** - Add timeout protection to `/irc-channels list`
-3. 🔴 Add same protections to other IRC commands (`/irc-who`, `/irc-users`, etc.)
-4. 🔴 Fix missing `cleanup()` in persistence-bun.ts
-5. 🔴 Write integration tests for connection drop scenarios
-6. 🟡 Test recovery manager reconnection
-7. 🟡 Add connection status notifications
-8. 🟢 Add graceful shutdown handlers
-9. 🟢 Add IRC health Prometheus metrics
+3. ✅ **DONE** - Add same protections to other IRC commands (`/irc-who`, `/irc-users`, etc.)
+4. ✅ **DONE** - Fix missing `cleanup()` in persistence-bun.ts
+5. ✅ **DONE** - Fix DNS reconnection loop (8000+ failures)
+6. ✅ **DONE** - Add graceful shutdown handlers
+7. 🔴 Write integration tests for connection drop scenarios
+8. 🟡 Test recovery manager reconnection
+9. 🟡 Add connection status notifications
+10. 🟢 Add IRC health Prometheus metrics
 
 **Estimated Time to Address High Priority:** 4-6 hours
 **Estimated Time to Address All Issues:** 12-16 hours
