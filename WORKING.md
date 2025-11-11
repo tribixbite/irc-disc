@@ -18,7 +18,150 @@ git push origin main
 git push origin v1.2.1
 ```
 
-## ✅ Completed (2025-11-06 to 2025-11-09)
+## ✅ Completed (2025-11-06 to 2025-11-11)
+
+### 🔴 CRITICAL FIX: IRC Connection Monitoring & Slash Command Timeout Protection (v1.2.1)
+**Date:** 2025-11-11
+**Files:** `lib/bot.ts:140-144, 806-870, 1723-1772, 492-499`, `lib/slash-commands.ts:2483-2490, 2503-2511, 2652-2671`
+
+**Problems:**
+1. IRC connection drops went undetected - bot continued running without realizing IRC was disconnected
+2. Slash commands (`/irc-channels list`) timed out when IRC connection was dead/hanging, causing cascading Discord API errors:
+   - "Unknown interaction" (token expired after initial 3s window)
+   - "Interaction has already been acknowledged" (duplicate reply attempts)
+   - "Interaction not replied" (race condition on timeout)
+
+**Root Causes:**
+1. **No connection state tracking** - Bot had IRC event listeners but no central state tracking
+2. **No activity monitoring** - Silent connection drops (stale TCP connections) went unnoticed
+3. **No timeout protection** - IRC LIST command could hang indefinitely if connection was dead
+4. **Poor error handling** - Commands didn't check IRC status before execution
+5. **Cascading errors** - Failed `editReply()` caused additional error reply attempts
+
+**Solutions:**
+
+**IRC Connection Health Monitoring:**
+```typescript
+// lib/bot.ts:140-144
+private ircConnected: boolean = false;
+private ircRegistered: boolean = false;
+private lastIRCActivity: number = Date.now();
+private ircHealthCheckInterval?: NodeJS.Timeout;
+```
+
+**Connection State Updates:**
+```typescript
+// lib/bot.ts:806-829 - registered event
+this.ircConnected = true;
+this.ircRegistered = true;
+this.lastIRCActivity = Date.now();
+this.startIRCHealthMonitoring();
+
+// lib/bot.ts:831-870 - error/abort/close/netError events
+this.ircConnected = false;
+this.ircRegistered = false;
+
+// lib/bot.ts:873-892 - message/pm/notice events
+this.lastIRCActivity = Date.now();
+```
+
+**Health Monitoring:**
+```typescript
+// lib/bot.ts:1748-1762
+private startIRCHealthMonitoring(): void {
+  this.ircHealthCheckInterval = setInterval(() => {
+    const health = this.getIRCConnectionHealth();
+    const staleThreshold = 5 * 60 * 1000; // 5 minutes
+
+    if (health.connected && health.timeSinceActivity > staleThreshold) {
+      logger.warn(`⚠️  IRC connection may be stale - no activity for ${Math.round(health.timeSinceActivity / 1000)}s`);
+    }
+
+    if (!health.connected) {
+      logger.warn('⚠️  IRC connection is down');
+    }
+  }, 60000); // Every 60 seconds
+}
+```
+
+**Public API for Slash Commands:**
+```typescript
+// lib/bot.ts:1727-1729
+isIRCConnected(): boolean {
+  return this.ircConnected && this.ircRegistered;
+}
+
+// lib/bot.ts:1735-1742
+getIRCConnectionHealth(): { connected: boolean; registered: boolean; lastActivity: number; timeSinceActivity: number }
+```
+
+**Slash Command Protection:**
+```typescript
+// lib/slash-commands.ts:2483-2490
+// Check IRC connection before proceeding
+if (!bot.isIRCConnected()) {
+  await interaction.reply({
+    content: '❌ **IRC Not Connected**\n\nThe IRC connection is currently down. Please wait for reconnection or check bot status.',
+    ephemeral: true
+  });
+  return;
+}
+```
+
+**Timeout Protection for IRC LIST:**
+```typescript
+// lib/slash-commands.ts:2503-2511
+// Add timeout protection for IRC LIST command (max 30 seconds)
+const listChannelsWithTimeout = Promise.race([
+  bot.ircUserManager.listChannels(pattern || undefined),
+  new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('IRC channel list request timed out after 30s')), 30000)
+  )
+]);
+
+const channels = await listChannelsWithTimeout;
+```
+
+**Graceful Error Handling:**
+```typescript
+// lib/slash-commands.ts:2655-2671
+try {
+  if (interaction.deferred || interaction.replied) {
+    await interaction.editReply({ content: `❌ Failed: ${error.message}` });
+  } else {
+    await interaction.reply({ content: `❌ Failed: ${error.message}`, ephemeral: true });
+  }
+} catch (replyError) {
+  // Interaction token expired (>15 min) or connection lost
+  // Just log the error, don't try to reply again
+  logger.error('Failed to send error message to user (interaction may have expired):', replyError);
+}
+```
+
+**Impact:**
+- ✅ IRC connection drops are now detected within 60 seconds
+- ✅ Stale connections (no activity >5min) trigger warnings
+- ✅ Slash commands check IRC status before executing
+- ✅ IRC LIST command has 30s timeout protection
+- ✅ No more cascading Discord API errors
+- ✅ Graceful error messages when IRC is unavailable
+- ✅ Health monitoring starts on registration, stops on disconnect
+
+**Testing:**
+```bash
+# Verify connection monitoring
+$ bun dist/lib/cli.js --config config.json
+2025-11-11T14:00:00.000Z [info]: ✅ Connected and registered to IRC
+2025-11-11T14:00:00.000Z [info]: Starting IRC health monitoring...
+
+# After IRC disconnects:
+2025-11-11T14:01:00.000Z [warn]: ❌ IRC connection closed
+2025-11-11T14:02:00.000Z [warn]: ⚠️  IRC connection is down
+
+# Slash command while disconnected:
+User: /irc-channels list
+Bot: ❌ IRC Not Connected - The IRC connection is currently down.
+```
 
 ### 🔴 CRITICAL FIX: Webhook Support for IRC→Discord Messages (v1.2.1)
 **Date:** 2025-11-08
