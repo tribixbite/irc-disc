@@ -117,21 +117,35 @@ describe('IRC Connection Drop', () => {
 
 ---
 
-### 5. Rate Limiter Doesn't Account for IRC Connection State
+### 5. ✅ COMPLETED - Rate Limiter Doesn't Account for IRC Connection State
 
 **Issue:** Rate limiter may still enforce limits when IRC is down, causing legitimate messages to be dropped unnecessarily.
 
-**Files:** `lib/rate-limiter.ts`
+**Files:** `lib/bot.ts` (Discord→IRC message handler)
 
-**Suggestion:**
+**Implementation:**
 ```typescript
-// In rate limiter check:
-if (!bot.isIRCConnected()) {
-  // Don't enforce rate limits when IRC is down
-  // Messages won't be sent anyway
-  return true; // Allow
+// Added IRC connection check before rate limiting at lib/bot.ts:1268
+if (!this.isIRCConnected()) {
+  logger.debug(`Skipping rate limit check for ${author.username} - IRC connection is down`);
+  // Message will be silently dropped later when IRC send fails
+  // No point in rate limiting something that won't go through
+} else {
+  // Normal rate limiting only when IRC is up
+  const rateLimitResult = this.rateLimiter.checkMessage(...)
+  // ...
 }
 ```
+
+**Benefits:**
+- Users no longer penalized for messages during IRC downtime
+- Rate limit counters don't accumulate when IRC is unavailable
+- When IRC reconnects, users have clean slate for rate limiting
+- Prevents unnecessary rate limit warnings for unsent messages
+
+**Note:** IRC→Discord rate limiting is unaffected (messages only come from IRC when it's connected)
+
+**Completed:** 2025-11-11 - IRC connection check added to Discord→IRC rate limiting
 
 ---
 
@@ -306,13 +320,13 @@ async cleanup(): Promise<void> {
 ## 📊 Summary
 
 **Total Issues Identified:** 15
-**Completed:** 10
-**Remaining:** 5
+**Completed:** 11
+**Remaining:** 4
 
 **By Priority:**
 - 🔴 High: 2 completed, 1 remaining (integration tests)
 - 🟡 Medium: 4 completed, 0 remaining ✅
-- 🟢 Low: 4 completed, 4 remaining (metrics, validation, nick colors, PM thread config, slash command rate limiting, DB cleanup timing)
+- 🟢 Low: 5 completed, 3 remaining (Prometheus metrics, webhook validation, nick colors/PM/slash rate limits/DB cleanup)
 
 **Most Critical:**
 1. ✅ Add IRC connection checks to all IRC-dependent slash commands

@@ -1261,37 +1261,46 @@ class Bot {
       return;
     }
 
-    // Check rate limiting
     const messageContent = this.parseText(message);
-    const rateLimitResult = this.rateLimiter.checkMessage(
-      author.id, 
-      author.username, 
-      messageContent
-    );
-    
-    if (rateLimitResult) {
-      logger.warn(`Message from ${author.username} (${author.id}) blocked by rate limiter: ${rateLimitResult}`);
-      
-      // Record blocked message
-      this.metrics.recordMessageBlocked();
-      if (rateLimitResult.includes('warning')) {
-        this.metrics.recordUserWarned();
-      } else if (rateLimitResult.includes('blocked')) {
-        this.metrics.recordUserBlocked();
+
+    // Skip rate limiting when IRC is down to prevent penalizing users
+    // for messages that won't be sent anyway
+    if (!this.isIRCConnected()) {
+      logger.debug(`Skipping rate limit check for ${author.username} - IRC connection is down, message won't be sent`);
+      // Message will be silently dropped later when IRC send fails
+      // No point in rate limiting something that won't go through
+    } else {
+      // Check rate limiting (only when IRC is up)
+      const rateLimitResult = this.rateLimiter.checkMessage(
+        author.id,
+        author.username,
+        messageContent
+      );
+
+      if (rateLimitResult) {
+        logger.warn(`Message from ${author.username} (${author.id}) blocked by rate limiter: ${rateLimitResult}`);
+
+        // Record blocked message
+        this.metrics.recordMessageBlocked();
+        if (rateLimitResult.includes('warning')) {
+          this.metrics.recordUserWarned();
+        } else if (rateLimitResult.includes('blocked')) {
+          this.metrics.recordUserBlocked();
+        }
+        if (rateLimitResult.includes('spam')) {
+          this.metrics.recordSpamDetected();
+        }
+
+        // Send warning to Discord user via DM (optional, can be disabled)
+        try {
+          const warningMessage = `⚠️ **Rate Limit Warning**\n\n${rateLimitResult}\n\nPlease slow down your message sending rate.`;
+          await author.send(warningMessage);
+        } catch (error) {
+          logger.debug(`Could not send rate limit warning DM to ${author.username}:`, error);
+        }
+
+        return; // Block the message
       }
-      if (rateLimitResult.includes('spam')) {
-        this.metrics.recordSpamDetected();
-      }
-      
-      // Send warning to Discord user via DM (optional, can be disabled)
-      try {
-        const warningMessage = `⚠️ **Rate Limit Warning**\n\n${rateLimitResult}\n\nPlease slow down your message sending rate.`;
-        await author.send(warningMessage);
-      } catch (error) {
-        logger.debug(`Could not send rate limit warning DM to ${author.username}:`, error);
-      }
-      
-      return; // Block the message
     }
 
     if (!isTextChannel(message.channel)) return;
