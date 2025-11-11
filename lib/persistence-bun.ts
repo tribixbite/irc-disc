@@ -238,6 +238,31 @@ export class PersistenceService {
     return result;
   }
 
+  /**
+   * Delete PM thread mapping for a specific IRC nick
+   */
+  async deletePMThread(ircNick: string): Promise<void> {
+    return this.writeWithRetry(() => {
+      this.db.run('DELETE FROM pm_threads WHERE irc_nick = ?', [ircNick.toLowerCase()]);
+    });
+  }
+
+  /**
+   * Cleanup old data from the database
+   * - Removes PM threads inactive for more than 7 days
+   * - Removes channel user data older than 1 day
+   */
+  async cleanup(): Promise<void> {
+    const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+    const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+
+    // Bun's synchronous API wrapped for API compatibility
+    this.db.run('DELETE FROM pm_threads WHERE last_activity < ?', [sevenDaysAgo]);
+    this.db.run('DELETE FROM channel_users WHERE last_updated < ?', [oneDayAgo]);
+
+    logger.debug('Database cleanup completed');
+  }
+
   async close(): Promise<void> {
     if (this.db) {
       this.db.close();
