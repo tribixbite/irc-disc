@@ -423,7 +423,7 @@ class Bot {
       channels: this.channels,
       floodProtection: true,
       floodProtectionDelay: 500,
-      retryCount: 10,
+      retryCount: 0, // CRITICAL FIX: Disable auto-retry, let RecoveryManager handle reconnection with DNS workaround
       autoRenick: true,
       autoConnect: false, // CRITICAL FIX: Must come AFTER spread to override any config setting
     };
@@ -473,8 +473,9 @@ class Bot {
         logger.info('IRC client constructed and listeners attached.');
 
         // Connect to IRC (autoConnect: false means we must connect manually)
+        // retryCount is 0 to disable auto-retry - RecoveryManager handles reconnection
         logger.info(`Connecting to IRC server: ${ircServerAddress} (${this.server})`);
-        this.ircClient.connect(ircOptions.retryCount || 10, () => {
+        this.ircClient.connect(ircOptions.retryCount, () => {
           // This callback fires upon successful registration to IRC server
           logger.info(`✅ Successfully connected and registered to IRC server: ${this.server}`);
         });
@@ -636,28 +637,40 @@ class Bot {
   private async reconnectIRC(): Promise<boolean> {
     try {
       logger.info('Reconnecting IRC client...');
-      
+
       // Disconnect existing client
       if (this.ircClient && this.ircClient.readyState === 'open') {
         this.ircClient.disconnect();
       }
-      
+
       // Wait a moment for cleanup
       await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Create new IRC client
+
+      // CRITICAL: Resolve DNS via shell workaround (same as initial connection)
+      logger.info(`Resolving IRC server hostname: ${this.server}`);
+      const ircServerAddress = await this.resolveViaGetent(this.server);
+
+      // Create new IRC client with resolved IP address
       const ircOptions = {
         userName: this.nickname,
         realName: this.nickname,
         channels: this.channels,
         floodProtection: true,
         floodProtectionDelay: 500,
-        retryCount: 10,
+        retryCount: 0, // CRITICAL: Disable auto-retry, let RecoveryManager handle it
         autoRenick: true,
         ...this.ircOptions,
       };
-      
-      this.ircClient = new irc.Client(this.server, this.nickname, ircOptions);
+
+      // Use resolved IP with SNI for TLS
+      const enhancedOptions = {
+        ...ircOptions,
+        secure: ircOptions.secure ? {
+          servername: this.server // SNI uses original hostname for TLS validation
+        } : false
+      };
+
+      this.ircClient = new irc.Client(ircServerAddress, this.nickname, enhancedOptions);
 
       // Re-initialize IRC user manager with WHOIS disabled by default
       this.ircUserManager = new IRCUserManager(this.ircClient, {
@@ -666,32 +679,32 @@ class Bot {
 
       // Re-attach IRC listeners
       this.attachIRCListeners();
-      
+
       // Wait for connection
       await new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
-          reject(new Error('IRC connection timeout'));
+          reject(new Error('IRC connection timeout after 30s'));
         }, 30000);
-        
+
         this.ircClient.once('registered', () => {
           clearTimeout(timeout);
           resolve(void 0);
         });
-        
+
         this.ircClient.once('error', (error) => {
           clearTimeout(timeout);
           reject(error);
         });
       });
-      
-      logger.info('IRC reconnection successful');
+
+      logger.info(`✅ IRC reconnection successful to ${ircServerAddress} (${this.server})`);
       this.metrics.recordIRCReconnect();
       this.recoveryManager.recordSuccess('irc');
-      
+
       return true;
-      
+
     } catch (error) {
-      logger.error('IRC reconnection failed:', error);
+      logger.error('❌ IRC reconnection failed:', error);
       this.recoveryManager.recordFailure('irc', error as Error);
       return false;
     }
