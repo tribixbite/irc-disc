@@ -198,20 +198,39 @@ statusNotifications:
 
 ## 🟢 Low Priority
 
-### 8. No Prometheus Metrics for IRC Connection Health
+### 8. ✅ COMPLETED - No Prometheus Metrics for IRC Connection Health
 
 **Issue:** Metrics server exports message counts but not IRC connection state.
 
-**Files:** `lib/metrics-server.ts`, `lib/metrics.ts`
+**Files:** `lib/metrics.ts`, `lib/bot.ts`
 
-**Enhancement:**
+**Implementation:**
 ```typescript
-// Add metrics:
-irc_connected{status="connected|disconnected"}
-irc_last_activity_seconds
-irc_connection_uptime_seconds
-irc_reconnection_count
+// Added 3 new Prometheus metrics:
+discord_irc_connection_status 1          # 1=connected, 0=disconnected
+discord_irc_uptime_seconds 3600.5        # Total uptime in seconds
+discord_irc_last_activity_seconds 2.3    # Time since last activity
+
+// New tracking methods:
+- recordIRCConnected() - tracks connection time and accumulates uptime
+- recordIRCDisconnected() - finalizes uptime on disconnect
+- updateIRCActivity() - updates activity timestamp on messages
+- getIRCUptime() - calculates total uptime including current session
+- getTimeSinceIRCActivity() - returns time since last activity
+
+// Integration points:
+- 'registered' event → recordIRCConnected()
+- 'error', 'abort', 'close', 'netError' → recordIRCDisconnected()
+- 'message', 'pm', 'notice' → updateIRCActivity()
 ```
+
+**Benefits:**
+- External monitoring systems can track IRC connection stability
+- Uptime metrics identify connection quality trends
+- Activity tracking detects stale/dead connections
+- Enables alerting on IRC disconnection events
+
+**Completed:** 2025-11-11 - IRC health metrics exported via Prometheus
 
 ---
 
@@ -320,24 +339,24 @@ async cleanup(): Promise<void> {
 ## 📊 Summary
 
 **Total Issues Identified:** 15
-**Completed:** 11
-**Remaining:** 4
+**Completed:** 12
+**Remaining:** 3
 
 **By Priority:**
 - 🔴 High: 2 completed, 1 remaining (integration tests)
 - 🟡 Medium: 4 completed, 0 remaining ✅
-- 🟢 Low: 5 completed, 3 remaining (Prometheus metrics, webhook validation, nick colors/PM/slash rate limits/DB cleanup)
+- 🟢 Low: 6 completed, 2 remaining (webhook validation, nick colors/PM/slash rate limits/DB cleanup)
 
 **Most Critical:**
 1. ✅ Add IRC connection checks to all IRC-dependent slash commands
 2. ✅ Add timeout protection to `/irc-who` command
 3. ✅ Fix missing `cleanup()` in Bun persistence implementation
-4. Test and verify recovery manager actually reconnects IRC
+4. ✅ Test and verify recovery manager actually reconnects IRC
 
 **Quick Wins:**
 - ✅ Add `cleanup()` to persistence-bun.ts (15 min)
 - ✅ Add SIGTERM/SIGINT handlers (15 min)
-- Add IRC health metrics to Prometheus (30 min)
+- ✅ Add IRC health metrics to Prometheus (30 min)
 
 ---
 
@@ -351,9 +370,9 @@ async cleanup(): Promise<void> {
 5. ✅ **DONE** - Fix DNS reconnection loop (8000+ failures)
 6. ✅ **DONE** - Add graceful shutdown handlers
 7. 🔴 Write integration tests for connection drop scenarios
-8. 🟡 Test recovery manager reconnection
-9. 🟡 Add connection status notifications
-10. 🟢 Add IRC health Prometheus metrics
+8. ✅ **DONE** - Test recovery manager reconnection
+9. ✅ **DONE** - Add connection status notifications
+10. ✅ **DONE** - Add IRC health Prometheus metrics
 
-**Estimated Time to Address High Priority:** 4-6 hours
-**Estimated Time to Address All Issues:** 12-16 hours
+**Estimated Time to Address High Priority:** ~2 hours (integration tests only)
+**Estimated Time to Address All Issues:** ~4-6 hours (tests + minor enhancements)
