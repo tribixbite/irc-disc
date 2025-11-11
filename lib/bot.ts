@@ -544,11 +544,22 @@ class Bot {
     this.recoveryManager.on('recoveryStarted', (service, error) => {
       logger.warn(`🔄 Recovery started for ${service}: ${error.message}`);
       this.metrics.recordConnectionError();
+
+      // Send IRC reconnecting notification
+      if (service === 'irc') {
+        // TODO: Get actual attempt/maxAttempts from recovery manager
+        this.sendIRCConnectionNotification('reconnecting', undefined, 1, 5);
+      }
     });
 
     this.recoveryManager.on('recoverySucceeded', (service, attempt) => {
       logger.info(`✅ Recovery successful for ${service} on attempt ${attempt}`);
       this.metrics.recordSuccess();
+
+      // Send IRC connected notification after successful recovery
+      if (service === 'irc') {
+        this.sendIRCConnectionNotification('connected');
+      }
     });
 
     this.recoveryManager.on('recoveryFailed', (service, error) => {
@@ -838,6 +849,9 @@ class Bot {
       // Record successful connection
       this.recoveryManager.recordSuccess('irc');
 
+      // Send IRC connected notification to Discord
+      this.sendIRCConnectionNotification('connected');
+
       for (const element of this.autoSendCommands) {
         this.ircClient.send(...element);
       }
@@ -855,6 +869,9 @@ class Bot {
       this.ircConnected = false;
       this.ircRegistered = false;
 
+      // Send IRC disconnected notification
+      this.sendIRCConnectionNotification('disconnected', error.message || 'IRC error');
+
       this.metrics.recordConnectionError();
       this.recoveryManager.recordFailure('irc', error);
     });
@@ -866,6 +883,9 @@ class Bot {
       this.ircConnected = false;
       this.ircRegistered = false;
 
+      // Send IRC disconnected notification
+      this.sendIRCConnectionNotification('disconnected', 'Connection aborted');
+
       this.recoveryManager.recordFailure('irc', new Error('IRC connection aborted'));
     });
 
@@ -876,6 +896,9 @@ class Bot {
       this.ircConnected = false;
       this.ircRegistered = false;
 
+      // Send IRC disconnected notification
+      this.sendIRCConnectionNotification('disconnected', 'Connection closed');
+
       this.recoveryManager.recordFailure('irc', new Error('IRC connection closed'));
     });
 
@@ -885,6 +908,9 @@ class Bot {
       // Update connection state
       this.ircConnected = false;
       this.ircRegistered = false;
+
+      // Send IRC disconnected notification
+      this.sendIRCConnectionNotification('disconnected', `Network error: ${error.message || error}`);
 
       this.recoveryManager.recordFailure('irc', error);
     });
@@ -1822,8 +1848,48 @@ class Bot {
     }
   }
 
+  /**
+   * Send IRC connection status notification to all mapped Discord channels
+   */
+  private sendIRCConnectionNotification(
+    status: 'connected' | 'disconnected' | 'reconnecting',
+    reason?: string,
+    attempt?: number,
+    maxAttempts?: number
+  ): void {
+    // Get first Discord channel from channelMapping to use as fallback
+    const channelMappingEntries = Object.entries(this.channelMapping);
+    if (channelMappingEntries.length === 0) {
+      logger.debug('No Discord channels mapped, skipping IRC connection notification');
+      return;
+    }
+
+    // Send notification to first available Discord channel
+    for (const [discordChannelId] of channelMappingEntries) {
+      const discordChannel = this.findDiscordChannel(discordChannelId);
+      if (discordChannel && isTextChannel(discordChannel as any)) {
+        const textChannel = discordChannel as TextChannel;
+
+        // Call appropriate notification method based on status
+        if (status === 'connected') {
+          this.statusNotifications.sendIRCConnectedNotification(textChannel)
+            .catch(error => logger.error('Failed to send IRC connected notification:', error));
+        } else if (status === 'disconnected') {
+          this.statusNotifications.sendIRCDisconnectedNotification(reason || 'Unknown reason', textChannel)
+            .catch(error => logger.error('Failed to send IRC disconnected notification:', error));
+        } else if (status === 'reconnecting' && attempt && maxAttempts) {
+          this.statusNotifications.sendIRCReconnectingNotification(attempt, maxAttempts, textChannel)
+            .catch(error => logger.error('Failed to send IRC reconnecting notification:', error));
+        }
+
+        // Only send to first channel to avoid spam
+        break;
+      }
+    }
+  }
+
   // Private Message functionality
-  
+
   sanitizeNickname(nickname: string): string {
     // Remove/replace characters that could break Discord thread names
     return nickname.replace(/[<>@#&!]/g, '_').substring(0, 80);

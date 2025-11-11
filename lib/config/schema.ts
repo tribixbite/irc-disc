@@ -74,11 +74,15 @@ const statusNotificationSchema = z.object({
   includeKicks: z.boolean().default(true),
   includeTimeouts: z.boolean().default(true),
   includeBotEvents: z.boolean().default(false),
+  includeIRCConnectionEvents: z.boolean().default(true),
   joinMessage: z.string().default('*{nick}* has joined {channel}'),
   leaveMessage: z.string().default('*{nick}* has left {channel}'),
   quitMessage: z.string().default('*{nick}* has quit ({reason})'),
   kickMessage: z.string().default('*{nick}* was kicked from {channel} ({reason})'),
-  timeoutMessage: z.string().default('*{nick}* was timed out in {channel} ({reason})')
+  timeoutMessage: z.string().default('*{nick}* was timed out in {channel} ({reason})'),
+  ircConnectedMessage: z.string().default('✅ **IRC Connected** - Connection to IRC server established'),
+  ircDisconnectedMessage: z.string().default('❌ **IRC Disconnected** - Connection to IRC server lost ({reason})'),
+  ircReconnectingMessage: z.string().default('🔄 **IRC Reconnecting** - Attempting reconnection (attempt {attempt}/{maxAttempts})')
 }).optional();
 
 // S3 configuration

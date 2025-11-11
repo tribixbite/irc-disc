@@ -13,11 +13,15 @@ export interface StatusNotificationConfig {
   includeKicks: boolean;
   includeTimeouts: boolean;
   includeBotEvents: boolean;      // Include bot's own join/leave events
+  includeIRCConnectionEvents: boolean; // Include IRC connection/disconnection events
   joinMessage: string;
   leaveMessage: string;
   quitMessage: string;
   kickMessage: string;
   timeoutMessage: string;
+  ircConnectedMessage: string;
+  ircDisconnectedMessage: string;
+  ircReconnectingMessage: string;
 }
 
 export interface StatusNotificationChannels {
@@ -40,11 +44,15 @@ export class StatusNotificationManager {
       includeKicks: true,
       includeTimeouts: true,
       includeBotEvents: false,
+      includeIRCConnectionEvents: true, // Default to enabled for IRC health monitoring
       joinMessage: '*{nick}* has joined {channel}',
       leaveMessage: '*{nick}* has left {channel}',
       quitMessage: '*{nick}* has quit ({reason})',
       kickMessage: '*{nick}* was kicked from {channel} ({reason})',
       timeoutMessage: '*{nick}* was timed out in {channel} ({reason})',
+      ircConnectedMessage: '✅ **IRC Connected** - Connection to IRC server established',
+      ircDisconnectedMessage: '❌ **IRC Disconnected** - Connection to IRC server lost ({reason})',
+      ircReconnectingMessage: '🔄 **IRC Reconnecting** - Attempting reconnection (attempt {attempt}/{maxAttempts})',
       ...config
     };
 
@@ -219,6 +227,54 @@ export class StatusNotificationManager {
   }
 
   /**
+   * Send IRC connection notification
+   */
+  async sendIRCConnectedNotification(
+    fallbackChannel: TextChannel
+  ): Promise<boolean> {
+    if (!this.config.enabled || !this.config.includeIRCConnectionEvents) {
+      return false;
+    }
+
+    const message = this.config.ircConnectedMessage;
+    return await this.sendNotification(message, 'joinLeave', fallbackChannel);
+  }
+
+  /**
+   * Send IRC disconnection notification
+   */
+  async sendIRCDisconnectedNotification(
+    reason: string = 'Unknown reason',
+    fallbackChannel: TextChannel
+  ): Promise<boolean> {
+    if (!this.config.enabled || !this.config.includeIRCConnectionEvents) {
+      return false;
+    }
+
+    const message = this.config.ircDisconnectedMessage.replace(/{reason}/g, reason);
+    return await this.sendNotification(message, 'joinLeave', fallbackChannel);
+  }
+
+  /**
+   * Send IRC reconnecting notification
+   */
+  async sendIRCReconnectingNotification(
+    attempt: number,
+    maxAttempts: number,
+    fallbackChannel: TextChannel
+  ): Promise<boolean> {
+    if (!this.config.enabled || !this.config.includeIRCConnectionEvents) {
+      return false;
+    }
+
+    const message = this.config.ircReconnectingMessage
+      .replace(/{attempt}/g, attempt.toString())
+      .replace(/{maxAttempts}/g, maxAttempts.toString());
+
+    return await this.sendNotification(message, 'joinLeave', fallbackChannel);
+  }
+
+  /**
    * Send notification to appropriate channel
    */
   private async sendNotification(
@@ -325,7 +381,7 @@ export class StatusNotificationManager {
   /**
    * Check if notifications are enabled for a specific type
    */
-  isNotificationEnabled(type: 'join' | 'leave' | 'quit' | 'kick' | 'timeout'): boolean {
+  isNotificationEnabled(type: 'join' | 'leave' | 'quit' | 'kick' | 'timeout' | 'ircConnection'): boolean {
     if (!this.config.enabled) return false;
 
     switch (type) {
@@ -334,6 +390,7 @@ export class StatusNotificationManager {
       case 'quit': return this.config.includeQuits;
       case 'kick': return this.config.includeKicks;
       case 'timeout': return this.config.includeTimeouts;
+      case 'ircConnection': return this.config.includeIRCConnectionEvents;
       default: return false;
     }
   }
@@ -354,11 +411,15 @@ export class StatusNotificationManager {
       includeKicks: options.statusNotifications?.includeKicks ?? (process.env.STATUS_NOTIFICATIONS_INCLUDE_KICKS !== 'false'),
       includeTimeouts: options.statusNotifications?.includeTimeouts ?? (process.env.STATUS_NOTIFICATIONS_INCLUDE_TIMEOUTS !== 'false'),
       includeBotEvents: options.statusNotifications?.includeBotEvents ?? (process.env.STATUS_NOTIFICATIONS_INCLUDE_BOT_EVENTS === 'true'),
+      includeIRCConnectionEvents: options.statusNotifications?.includeIRCConnectionEvents ?? (process.env.STATUS_NOTIFICATIONS_INCLUDE_IRC_CONNECTION !== 'false'),
       joinMessage: options.statusNotifications?.joinMessage || process.env.STATUS_NOTIFICATIONS_JOIN_MESSAGE,
       leaveMessage: options.statusNotifications?.leaveMessage || process.env.STATUS_NOTIFICATIONS_LEAVE_MESSAGE,
       quitMessage: options.statusNotifications?.quitMessage || process.env.STATUS_NOTIFICATIONS_QUIT_MESSAGE,
       kickMessage: options.statusNotifications?.kickMessage || process.env.STATUS_NOTIFICATIONS_KICK_MESSAGE,
-      timeoutMessage: options.statusNotifications?.timeoutMessage || process.env.STATUS_NOTIFICATIONS_TIMEOUT_MESSAGE
+      timeoutMessage: options.statusNotifications?.timeoutMessage || process.env.STATUS_NOTIFICATIONS_TIMEOUT_MESSAGE,
+      ircConnectedMessage: options.statusNotifications?.ircConnectedMessage || process.env.STATUS_NOTIFICATIONS_IRC_CONNECTED_MESSAGE,
+      ircDisconnectedMessage: options.statusNotifications?.ircDisconnectedMessage || process.env.STATUS_NOTIFICATIONS_IRC_DISCONNECTED_MESSAGE,
+      ircReconnectingMessage: options.statusNotifications?.ircReconnectingMessage || process.env.STATUS_NOTIFICATIONS_IRC_RECONNECTING_MESSAGE
     };
   }
 }
