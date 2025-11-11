@@ -189,7 +189,24 @@ export async function run(): Promise<void> {
   try {
     const validatedConfig = validateConfig(config);
     logger.info('Configuration validated successfully');
-    await helpers.createBot(validatedConfig as Record<string, unknown>);
+    const bot = await helpers.createBot(validatedConfig as Record<string, unknown>);
+
+    // Graceful shutdown handlers
+    const shutdown = async (signal: string) => {
+      logger.info(`\n${signal} received - initiating graceful shutdown...`);
+      try {
+        await bot.disconnect();
+        logger.info('✅ Bot disconnected gracefully');
+        process.exit(0);
+      } catch (error) {
+        logger.error('❌ Error during shutdown:', error);
+        process.exit(1);
+      }
+    };
+
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
+
   } catch (error) {
     if (error instanceof ZodError) {
       console.error('\n❌ Configuration validation failed:\n');
