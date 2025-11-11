@@ -122,24 +122,34 @@ if (!bot.isIRCConnected()) {
 
 ---
 
-### 6. Status Notifications Don't Reflect IRC Health
+### 6. ✅ COMPLETED - Status Notifications Don't Reflect IRC Health
 
 **Issue:** `StatusNotificationManager` sends join/leave notifications but doesn't notify on IRC connection drops.
 
-**Files:** `lib/status-notifications.ts`
+**Files:** `lib/status-notifications.ts`, `lib/bot.ts`, `lib/config/schema.ts`
 
-**Enhancement:**
+**Implementation:**
 ```typescript
-// On IRC disconnect:
-statusNotifications.sendNotification(
-  '❌ IRC connection lost - attempting reconnection...'
-);
+// Added 3 new notification methods:
+- sendIRCConnectedNotification(fallbackChannel)
+- sendIRCDisconnectedNotification(reason, fallbackChannel)
+- sendIRCReconnectingNotification(attempt, maxAttempts, fallbackChannel)
 
-// On IRC reconnect:
-statusNotifications.sendNotification(
-  '✅ IRC connection restored'
-);
+// Integrated with IRC events:
+- 'registered' → sendIRCConnectedNotification()
+- 'error', 'abort', 'close', 'netError' → sendIRCDisconnectedNotification(reason)
+- 'recoveryStarted' → sendIRCReconnectingNotification()
+- 'recoverySucceeded' → sendIRCConnectedNotification()
+
+// New config fields (defaults enabled):
+statusNotifications:
+  includeIRCConnectionEvents: true
+  ircConnectedMessage: '✅ **IRC Connected** - Connection to IRC server established'
+  ircDisconnectedMessage: '❌ **IRC Disconnected** - Connection to IRC server lost ({reason})'
+  ircReconnectingMessage: '🔄 **IRC Reconnecting** - Attempting reconnection (attempt {attempt}/{maxAttempts})'
 ```
+
+**Completed:** 2025-11-11 - IRC connection health notifications fully implemented
 
 ---
 
@@ -283,11 +293,13 @@ async cleanup(): Promise<void> {
 ## 📊 Summary
 
 **Total Issues Identified:** 15
+**Completed:** 9
+**Remaining:** 6
 
 **By Priority:**
-- 🔴 High: 3 (IRC command protection, recovery manager, integration tests)
-- 🟡 Medium: 4 (race conditions, rate limiter, status notifications, webhook handling)
-- 🟢 Low: 8 (metrics, validation, graceful shutdown, minor enhancements)
+- 🔴 High: 2 completed, 1 remaining (integration tests)
+- 🟡 Medium: 3 completed, 1 remaining (race conditions, rate limiter, webhook handling)
+- 🟢 Low: 4 completed, 4 remaining (metrics, validation, nick colors, PM thread config, slash command rate limiting, DB cleanup timing)
 
 **Most Critical:**
 1. ✅ Add IRC connection checks to all IRC-dependent slash commands
