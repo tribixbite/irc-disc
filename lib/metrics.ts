@@ -36,7 +36,14 @@ export interface MetricsData {
   messageLatencyMs: number[];
   errorCount: number;
   uptimeStart: number;
-  
+
+  // IRC connection health
+  ircConnected: boolean;
+  ircLastConnected: number;
+  ircLastDisconnected: number;
+  ircConnectionUptime: number; // Total time connected in ms
+  ircLastActivity: number;
+
   // Channel activity
   channelActivity: Map<string, number>; // channel -> message count
   userActivity: Map<string, number>; // user -> message count
@@ -109,6 +116,11 @@ export class MetricsCollector {
       messageLatencyMs: [],
       errorCount: 0,
       uptimeStart: Date.now(),
+      ircConnected: false,
+      ircLastConnected: 0,
+      ircLastDisconnected: 0,
+      ircConnectionUptime: 0,
+      ircLastActivity: 0,
       channelActivity: new Map(),
       userActivity: new Map()
     };
@@ -249,11 +261,76 @@ export class MetricsCollector {
    */
   recordLatency(latencyMs: number): void {
     this.latencyWindow.push(latencyMs);
-    
+
     // Keep only last 1000 latency measurements
     if (this.latencyWindow.length > 1000) {
       this.latencyWindow = this.latencyWindow.slice(-1000);
     }
+  }
+
+  /**
+   * Record IRC connection state change
+   */
+  recordIRCConnected(): void {
+    const now = Date.now();
+
+    // If we were disconnected, add the disconnected time to total uptime
+    if (!this.metrics.ircConnected && this.metrics.ircLastConnected > 0) {
+      const connectedDuration = this.metrics.ircLastDisconnected - this.metrics.ircLastConnected;
+      if (connectedDuration > 0) {
+        this.metrics.ircConnectionUptime += connectedDuration;
+      }
+    }
+
+    this.metrics.ircConnected = true;
+    this.metrics.ircLastConnected = now;
+    this.metrics.ircLastActivity = now;
+  }
+
+  recordIRCDisconnected(): void {
+    const now = Date.now();
+
+    // If we were connected, add the connected time to total uptime
+    if (this.metrics.ircConnected && this.metrics.ircLastConnected > 0) {
+      const connectedDuration = now - this.metrics.ircLastConnected;
+      if (connectedDuration > 0) {
+        this.metrics.ircConnectionUptime += connectedDuration;
+      }
+    }
+
+    this.metrics.ircConnected = false;
+    this.metrics.ircLastDisconnected = now;
+  }
+
+  /**
+   * Update IRC activity timestamp
+   */
+  updateIRCActivity(): void {
+    this.metrics.ircLastActivity = Date.now();
+  }
+
+  /**
+   * Get current IRC connection uptime (including current session if connected)
+   */
+  getIRCUptime(): number {
+    let uptime = this.metrics.ircConnectionUptime;
+
+    // Add current session time if connected
+    if (this.metrics.ircConnected && this.metrics.ircLastConnected > 0) {
+      uptime += (Date.now() - this.metrics.ircLastConnected);
+    }
+
+    return uptime;
+  }
+
+  /**
+   * Get time since last IRC activity
+   */
+  getTimeSinceIRCActivity(): number {
+    if (this.metrics.ircLastActivity === 0) {
+      return 0;
+    }
+    return Date.now() - this.metrics.ircLastActivity;
   }
   
   /**
@@ -399,6 +476,18 @@ discord_irc_rate_limit_blocks_total ${this.metrics.messagesBlocked}
 # HELP discord_irc_pm_threads_total Private message threads created
 # TYPE discord_irc_pm_threads_total counter
 discord_irc_pm_threads_total ${this.metrics.pmThreadsCreated}
+
+# HELP discord_irc_connection_status IRC connection status (1=connected, 0=disconnected)
+# TYPE discord_irc_connection_status gauge
+discord_irc_connection_status ${this.metrics.ircConnected ? 1 : 0}
+
+# HELP discord_irc_uptime_seconds Total IRC connection uptime in seconds
+# TYPE discord_irc_uptime_seconds counter
+discord_irc_uptime_seconds ${this.getIRCUptime() / 1000}
+
+# HELP discord_irc_last_activity_seconds Time since last IRC activity in seconds
+# TYPE discord_irc_last_activity_seconds gauge
+discord_irc_last_activity_seconds ${this.getTimeSinceIRCActivity() / 1000}
 `.trim();
   }
   

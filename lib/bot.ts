@@ -848,6 +848,7 @@ class Bot {
 
       // Record successful connection
       this.recoveryManager.recordSuccess('irc');
+      this.metrics.recordIRCConnected();
 
       // Send IRC connected notification to Discord
       this.sendIRCConnectionNotification('connected');
@@ -873,6 +874,7 @@ class Bot {
       this.sendIRCConnectionNotification('disconnected', error.message || 'IRC error');
 
       this.metrics.recordConnectionError();
+      this.metrics.recordIRCDisconnected();
       this.recoveryManager.recordFailure('irc', error);
     });
 
@@ -886,6 +888,7 @@ class Bot {
       // Send IRC disconnected notification
       this.sendIRCConnectionNotification('disconnected', 'Connection aborted');
 
+      this.metrics.recordIRCDisconnected();
       this.recoveryManager.recordFailure('irc', new Error('IRC connection aborted'));
     });
 
@@ -899,6 +902,7 @@ class Bot {
       // Send IRC disconnected notification
       this.sendIRCConnectionNotification('disconnected', 'Connection closed');
 
+      this.metrics.recordIRCDisconnected();
       this.recoveryManager.recordFailure('irc', new Error('IRC connection closed'));
     });
 
@@ -912,12 +916,14 @@ class Bot {
       // Send IRC disconnected notification
       this.sendIRCConnectionNotification('disconnected', `Network error: ${error.message || error}`);
 
+      this.metrics.recordIRCDisconnected();
       this.recoveryManager.recordFailure('irc', error);
     });
 
     // Handle IRC messages with proper async error handling
     this.ircClient.on('message', (author, channel, text) => {
       this.lastIRCActivity = Date.now(); // Track activity
+      this.metrics.updateIRCActivity();
       this.sendToDiscord(author, channel, text).catch((error) => {
         logger.error('Error sending IRC message to Discord:', error);
       });
@@ -926,12 +932,14 @@ class Bot {
     // Handle private messages from IRC users
     this.ircClient.on('pm', async (from, text) => {
       this.lastIRCActivity = Date.now(); // Track activity
+      this.metrics.updateIRCActivity();
       await this.handleIrcPrivateMessage(from, text);
     });
 
     // Handle IRC notices with proper async error handling
     this.ircClient.on('notice', (author, to, text) => {
       this.lastIRCActivity = Date.now(); // Track activity
+      this.metrics.updateIRCActivity();
       this.sendToDiscord(author, to, `*${text}*`).catch((error) => {
         logger.error('Error sending IRC notice to Discord:', error);
       });
