@@ -2472,26 +2472,43 @@ export const ircChannelDiscoveryCommand: SlashCommand = {
   
   async execute(interaction: CommandInteraction, bot: Bot) {
     if (!hasAdminPermission(interaction)) {
-      await interaction.reply({ 
-        content: '❌ You need administrator permissions to use this command.', 
-        ephemeral: true 
+      await interaction.reply({
+        content: '❌ You need administrator permissions to use this command.',
+        ephemeral: true
       });
       return;
     }
 
     try {
+      // Check IRC connection before proceeding
+      if (!bot.isIRCConnected()) {
+        await interaction.reply({
+          content: '❌ **IRC Not Connected**\n\nThe IRC connection is currently down. Please wait for reconnection or check bot status.',
+          ephemeral: true
+        });
+        return;
+      }
+
       await interaction.deferReply({ ephemeral: true });
-      
+
       const subcommand = interaction.options.getSubcommand();
-      
+
       switch (subcommand) {
         case 'list': {
           const pattern = interaction.options.getString('pattern');
           const minUsers = interaction.options.getInteger('min_users') || 1;
           const limit = interaction.options.getInteger('limit') || 50;
-          
+
           try {
-            const channels = await bot.ircUserManager.listChannels(pattern || undefined);
+            // Add timeout protection for IRC LIST command (max 30 seconds)
+            const listChannelsWithTimeout = Promise.race([
+              bot.ircUserManager.listChannels(pattern || undefined),
+              new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error('IRC channel list request timed out after 30s')), 30000)
+              )
+            ]);
+
+            const channels = await listChannelsWithTimeout;
             
             // Filter by minimum users
             const filteredChannels = channels
@@ -2634,9 +2651,24 @@ export const ircChannelDiscoveryCommand: SlashCommand = {
       
     } catch (error) {
       logger.error('Error in IRC channel discovery command:', error);
-      await interaction.editReply({ 
-        content: '❌ Failed to execute IRC channel command.' 
-      });
+
+      // Handle Discord API errors gracefully (interaction timeout, already acknowledged, etc.)
+      try {
+        if (interaction.deferred || interaction.replied) {
+          await interaction.editReply({
+            content: `❌ Failed to execute IRC channel command: ${error instanceof Error ? error.message : 'Unknown error'}`
+          });
+        } else {
+          await interaction.reply({
+            content: `❌ Failed to execute IRC channel command: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            ephemeral: true
+          });
+        }
+      } catch (replyError) {
+        // Interaction token may have expired (>15 min) or connection lost
+        // Just log the error, don't try to reply again
+        logger.error('Failed to send error message to user (interaction may have expired):', replyError);
+      }
     }
   }
 };

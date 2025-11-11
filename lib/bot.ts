@@ -137,6 +137,12 @@ class Bot {
   // IRC user information manager
   ircUserManager!: IRCUserManager;
 
+  // IRC connection state tracking
+  private ircConnected: boolean = false;
+  private ircRegistered: boolean = false;
+  private lastIRCActivity: number = Date.now();
+  private ircHealthCheckInterval?: NodeJS.Timeout;
+
   constructor(options: Record<string, unknown>) {
     for (const field of REQUIRED_FIELDS) {
       if (!options[field]) {
@@ -484,6 +490,13 @@ class Bot {
   }
 
   async disconnect() {
+    // Stop IRC health monitoring
+    this.stopIRCHealthMonitoring();
+
+    // Update connection state
+    this.ircConnected = false;
+    this.ircRegistered = false;
+
     this.ircClient.disconnect();
     this.discord.destroy();
     for (const x of Object.values(this.webhooks)) {
@@ -798,16 +811,24 @@ class Bot {
 
   private attachIRCListeners() {
     this.ircClient.on('registered', (message) => {
-      logger.info('Connected to IRC');
+      logger.info('✅ Connected and registered to IRC');
       logger.debug('Registered event: ', message);
-      
+
+      // Update connection state
+      this.ircConnected = true;
+      this.ircRegistered = true;
+      this.lastIRCActivity = Date.now();
+
+      // Start health monitoring
+      this.startIRCHealthMonitoring();
+
       // Record successful connection
       this.recoveryManager.recordSuccess('irc');
-      
+
       for (const element of this.autoSendCommands) {
         this.ircClient.send(...element);
       }
-      
+
       // Schedule periodic cleanup of IRC user data (every 6 hours)
       setInterval(() => {
         this.ircUserManager.cleanup();
@@ -815,28 +836,49 @@ class Bot {
     });
 
     this.ircClient.on('error', (error) => {
-      logger.error('Received error event from IRC', error);
+      logger.error('❌ Received error event from IRC', error);
+
+      // Update connection state - error might indicate connection loss
+      this.ircConnected = false;
+      this.ircRegistered = false;
+
       this.metrics.recordConnectionError();
       this.recoveryManager.recordFailure('irc', error);
     });
 
     this.ircClient.on('abort', () => {
-      logger.warn('IRC connection aborted');
+      logger.warn('❌ IRC connection aborted');
+
+      // Update connection state
+      this.ircConnected = false;
+      this.ircRegistered = false;
+
       this.recoveryManager.recordFailure('irc', new Error('IRC connection aborted'));
     });
 
     this.ircClient.on('close', () => {
-      logger.warn('IRC connection closed');
+      logger.warn('❌ IRC connection closed');
+
+      // Update connection state
+      this.ircConnected = false;
+      this.ircRegistered = false;
+
       this.recoveryManager.recordFailure('irc', new Error('IRC connection closed'));
     });
 
     this.ircClient.on('netError', (error) => {
-      logger.error('IRC network error:', error);
+      logger.error('❌ IRC network error:', error);
+
+      // Update connection state
+      this.ircConnected = false;
+      this.ircRegistered = false;
+
       this.recoveryManager.recordFailure('irc', error);
     });
 
     // Handle IRC messages with proper async error handling
     this.ircClient.on('message', (author, channel, text) => {
+      this.lastIRCActivity = Date.now(); // Track activity
       this.sendToDiscord(author, channel, text).catch((error) => {
         logger.error('Error sending IRC message to Discord:', error);
       });
@@ -844,11 +886,13 @@ class Bot {
 
     // Handle private messages from IRC users
     this.ircClient.on('pm', async (from, text) => {
+      this.lastIRCActivity = Date.now(); // Track activity
       await this.handleIrcPrivateMessage(from, text);
     });
 
     // Handle IRC notices with proper async error handling
     this.ircClient.on('notice', (author, to, text) => {
+      this.lastIRCActivity = Date.now(); // Track activity
       this.sendToDiscord(author, to, `*${text}*`).catch((error) => {
         logger.error('Error sending IRC notice to Discord:', error);
       });
@@ -1711,6 +1755,57 @@ class Bot {
       this.ircClient.part(channel, message);
     } else {
       this.ircClient.part(channel);
+    }
+  }
+
+  /**
+   * Check if IRC client is currently connected and registered
+   * This provides a reliable way for slash commands to check IRC availability
+   */
+  isIRCConnected(): boolean {
+    return this.ircConnected && this.ircRegistered;
+  }
+
+  /**
+   * Get IRC connection health information
+   * Returns time since last activity and connection state
+   */
+  getIRCConnectionHealth(): { connected: boolean; registered: boolean; lastActivity: number; timeSinceActivity: number } {
+    return {
+      connected: this.ircConnected,
+      registered: this.ircRegistered,
+      lastActivity: this.lastIRCActivity,
+      timeSinceActivity: Date.now() - this.lastIRCActivity
+    };
+  }
+
+  /**
+   * Start periodic IRC health monitoring
+   * Logs warnings if connection is stale (no activity for > 5 minutes)
+   */
+  private startIRCHealthMonitoring(): void {
+    // Check IRC connection health every 60 seconds
+    this.ircHealthCheckInterval = setInterval(() => {
+      const health = this.getIRCConnectionHealth();
+      const staleThreshold = 5 * 60 * 1000; // 5 minutes
+
+      if (health.connected && health.timeSinceActivity > staleThreshold) {
+        logger.warn(`⚠️  IRC connection may be stale - no activity for ${Math.round(health.timeSinceActivity / 1000)}s`);
+      }
+
+      if (!health.connected) {
+        logger.warn('⚠️  IRC connection is down');
+      }
+    }, 60000); // Every 60 seconds
+  }
+
+  /**
+   * Stop IRC health monitoring
+   */
+  private stopIRCHealthMonitoring(): void {
+    if (this.ircHealthCheckInterval) {
+      clearInterval(this.ircHealthCheckInterval);
+      this.ircHealthCheckInterval = undefined;
     }
   }
 
