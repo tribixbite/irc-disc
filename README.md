@@ -324,11 +324,75 @@ View channel access control lists
 
 ### 🔧 **System Management**
 
-#### `/irc-recovery`
+#### `/irc-metrics [subcommand]`
+View detailed IRC bridge metrics and statistics
+- `summary` - Show metrics summary with totals and rates
+- `detailed` - Show detailed breakdown of all metrics
+- `recent` - Show recent activity (last hour)
+- `export` - Export metrics in Prometheus format
+- `reset` - Reset all metrics (admin only)
+
+#### `/irc-recovery [subcommand]`
 Monitor and control error recovery systems
 - `status` - View recovery manager health and statistics
 - `health` - Detailed health check results for all components
 - `trigger` - Manually trigger recovery process (emergency use)
+
+#### `/irc-reconnect`
+Force IRC client to reconnect
+- Manually disconnect and reconnect IRC connection
+- Useful for testing connection recovery or network issues
+- 2-second delay between disconnect and reconnect
+
+#### `/irc-pm [subcommand]`
+Manage IRC private message threads
+- `list` - List active PM threads
+- `cleanup` - Clean up inactive PM threads
+- `close <nickname>` - Close a specific PM thread
+
+#### `/irc-ratelimit [subcommand]`
+Manage IRC bridge rate limiting
+- `status` - Show detailed rate limit statistics
+- `blocked` - List currently blocked users
+- `unblock <user>` - Unblock a specific user
+- `clear <user>` - Clear warnings for a specific user
+
+### 🎨 **Feature Configuration**
+
+#### `/irc-s3 [subcommand]`
+Manage S3 file upload settings
+- `status` - Show S3 upload configuration and status
+- `test` - Test S3 connection and upload functionality
+- `stats` - Show S3 upload statistics
+
+#### `/irc-mentions [subcommand]`
+Manage IRC-to-Discord mention notifications
+- `status` - Show mention detection configuration
+- `test <username> <message>` - Test mention detection
+- `enable` - Enable mention detection
+- `disable` - Disable mention detection
+
+#### `/irc-status-notifications [subcommand]`
+Manage IRC status notifications (join/leave/timeout)
+- `status` - Show status notification configuration
+- `channels` - Show configured notification channels
+- `enable` - Enable status notifications
+- `disable` - Disable status notifications
+- `test <type>` - Send a test notification (join/leave/quit/kick/timeout)
+
+### 🔍 **Information Commands**
+
+#### `/irc-userinfo [subcommand]`
+Get detailed information about IRC users
+- `lookup <nick>` - Look up detailed information about a specific user
+- `search [filters]` - Search for users by nick/hostname/realname/channel
+- `stats` - Show IRC user tracking statistics
+
+#### `/irc-channelinfo [subcommand]`
+Get detailed information about IRC channels
+- `info <channel>` - Get detailed information about a specific channel
+- `users <channel>` - List all users in a channel with their modes
+- `list` - List all tracked IRC channels
 
 ---
 
