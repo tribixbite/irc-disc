@@ -23,9 +23,9 @@ describe('IRC Connection Monitoring', () => {
   const createBot = (optConfig: Record<string, unknown> | null = null) => {
     const useConfig = optConfig || config;
     const bot = new Bot(useConfig);
-    bot.sendToIRC = vi.fn();
-    bot.sendToDiscord = vi.fn();
-    bot.sendExactToDiscord = vi.fn();
+    bot.sendToIRC = vi.fn().mockResolvedValue(undefined);
+    bot.sendToDiscord = vi.fn().mockResolvedValue(undefined);
+    bot.sendExactToDiscord = vi.fn().mockResolvedValue(undefined);
     return bot;
   };
 
@@ -43,11 +43,39 @@ describe('IRC Connection Monitoring', () => {
     ClientStub.prototype.join = vi.fn();
     ClientStub.prototype.say = sayStub;
     bot = createBot();
-    await bot.connect();
+
+    // Mock the DNS resolution method to prevent Bun.spawn from being called
+    // This allows bot.connect() to complete successfully in test environment
+    vi.spyOn(bot as any, 'resolveViaGetent').mockResolvedValue('irc.test.server');
+
+    try {
+      await bot.connect();
+
+      // Wait for IRC client to be created (happens in setImmediate callback)
+      // The bot.connect() method uses setImmediate() to defer IRC initialization
+      // so we need to wait for that async operation to complete
+      await new Promise<void>((resolve) => {
+        const checkInterval = setInterval(() => {
+          if (bot.ircClient) {
+            clearInterval(checkInterval);
+            resolve();
+          }
+        }, 10);
+
+        // Timeout after 1 second
+        setTimeout(() => {
+          clearInterval(checkInterval);
+          resolve();
+        }, 1000);
+      });
+    } catch (error) {
+      console.error('bot.connect() failed:', error);
+      throw error;
+    }
 
     // Verify IRC client was created
     if (!bot.ircClient) {
-      throw new Error('IRC client not created during bot.connect()');
+      throw new Error('IRC client not created during bot.connect() - setImmediate callback may not have run');
     }
   });
 

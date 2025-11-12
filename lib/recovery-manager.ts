@@ -104,7 +104,7 @@ export class RecoveryManager extends EventEmitter {
       this.emit('circuitBreakerTripped', service, health);
     }
     
-    logger.error(`${service} connection failure recorded:`, error.message);
+    logger.error(`${service} connection failure recorded:`, error?.message || error || 'Unknown error');
     this.emit('serviceUnhealthy', service, health, error);
     
     // Trigger recovery if not already recovering

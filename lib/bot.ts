@@ -871,7 +871,7 @@ class Bot {
       this.ircRegistered = false;
 
       // Send IRC disconnected notification
-      this.sendIRCConnectionNotification('disconnected', error.message || 'IRC error');
+      this.sendIRCConnectionNotification('disconnected', error?.message || 'IRC error');
 
       this.metrics.recordConnectionError();
       this.metrics.recordIRCDisconnected();
@@ -914,7 +914,7 @@ class Bot {
       this.ircRegistered = false;
 
       // Send IRC disconnected notification
-      this.sendIRCConnectionNotification('disconnected', `Network error: ${error.message || error}`);
+      this.sendIRCConnectionNotification('disconnected', `Network error: ${error?.message || error || 'Unknown'}`);
 
       this.metrics.recordIRCDisconnected();
       this.recoveryManager.recordFailure('irc', error);
