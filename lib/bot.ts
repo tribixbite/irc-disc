@@ -1836,6 +1836,14 @@ class Bot {
   }
 
   /**
+   * Get IRC stats for monitoring and testing
+   * Alias for getIRCConnectionHealth() for test compatibility
+   */
+  getIRCStats(): { connected: boolean; registered: boolean; lastActivity: number; timeSinceActivity: number } {
+    return this.getIRCConnectionHealth();
+  }
+
+  /**
    * Start periodic IRC health monitoring
    * Logs warnings if connection is stale (no activity for > 5 minutes)
    */
