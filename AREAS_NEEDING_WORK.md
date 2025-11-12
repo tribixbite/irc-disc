@@ -9,6 +9,46 @@ Analysis of irc-disc codebase identifying areas that need improvement or fixing.
 
 ## 🔴 High Priority
 
+### 0. ✅ COMPLETED - CRITICAL: IRC Connection Leak on WiFi Drop
+
+**Severity:** Critical
+**Date Fixed:** 2025-11-12
+
+**Issue:** When WiFi drops on mobile devices, the bot creates **11 simultaneous IRC connections** instead of a single reconnection attempt, causing:
+- Connection storm when network recovers
+- Circuit breaker incrementing rapidly (84+ failures in 10 seconds)
+- Multiple ping timers running simultaneously
+- SASL authentication failures from nickname conflicts
+- Resource exhaustion and potential IRC server rate limiting
+
+**Root Cause:** `reconnectIRC()` method was missing `autoConnect: false` option, allowing IRC library to auto-connect when creating new client. This created uncontrolled connection attempts before event listeners were attached.
+
+**Files Fixed:** `lib/bot.ts`
+
+**Changes Made:**
+1. **Added `autoConnect: false` to reconnection options** (line 675)
+   - Moved `...this.ircOptions` spread to START of options object
+   - Added `autoConnect: false` AFTER spread to override any config setting
+   - Prevents IRC library from auto-connecting before listeners attached
+
+2. **Added explicit .connect() call** (line 713)
+   - With `autoConnect: false`, must explicitly call `ircClient.connect(0)`
+   - Placed inside Promise that waits for 'registered' event
+   - Ensures controlled, single connection attempt
+
+3. **Added reconnection guard flag** (line 143, 651-654, 737)
+   - New `private ircReconnecting: boolean = false` class property
+   - Guard at start of `reconnectIRC()` prevents concurrent attempts
+   - Reset in finally block ensures flag is always cleared
+
+**Testing:** Manual testing recommended - disable WiFi, wait 10s, re-enable WiFi, verify single reconnection attempt.
+
+**Documentation:** See `docs/IRC_CONNECTION_LEAK_FIX.md` for detailed analysis and fix documentation.
+
+**Completed:** 2025-11-12 - Critical connection leak fixed
+
+---
+
 ### 1. ✅ COMPLETED - Other Slash Commands Need IRC Connection Protection
 
 **Issue:** Only `/irc-channels` has IRC connection checks and timeout protection. Other commands that use IRC are vulnerable to the same issues.
@@ -359,12 +399,12 @@ async cleanup(): Promise<void> {
 
 ## 📊 Summary
 
-**Total Issues Identified:** 15
-**Completed:** 13
+**Total Issues Identified:** 16
+**Completed:** 14
 **Remaining:** 2
 
 **By Priority:**
-- 🔴 High: 3 completed, 0 remaining ✅
+- 🔴 High: 4 completed, 0 remaining ✅
 - 🟡 Medium: 4 completed, 0 remaining ✅
 - 🟢 Low: 6 completed, 2 remaining (webhook validation, misc enhancements)
 

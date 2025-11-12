@@ -140,6 +140,7 @@ class Bot {
   // IRC connection state tracking
   private ircConnected: boolean = false;
   private ircRegistered: boolean = false;
+  private ircReconnecting: boolean = false; // Guard against concurrent reconnections
   private lastIRCActivity: number = Date.now();
   private ircHealthCheckInterval?: NodeJS.Timeout;
 
@@ -646,6 +647,14 @@ class Bot {
    * Attempt to reconnect IRC client
    */
   private async reconnectIRC(): Promise<boolean> {
+    // Guard against concurrent reconnections
+    if (this.ircReconnecting) {
+      logger.debug('IRC reconnection already in progress, skipping duplicate attempt');
+      return false;
+    }
+
+    this.ircReconnecting = true;
+
     try {
       logger.info('Reconnecting IRC client...');
 
@@ -663,6 +672,8 @@ class Bot {
 
       // Create new IRC client with resolved IP address
       const ircOptions = {
+        // Spread config first so our critical fixes can override it
+        ...this.ircOptions,
         userName: this.nickname,
         realName: this.nickname,
         channels: this.channels,
@@ -670,7 +681,7 @@ class Bot {
         floodProtectionDelay: 500,
         retryCount: 0, // CRITICAL: Disable auto-retry, let RecoveryManager handle it
         autoRenick: true,
-        ...this.ircOptions,
+        autoConnect: false, // CRITICAL: Must come AFTER spread to override any config setting
       };
 
       // Use resolved IP with SNI for TLS
@@ -691,7 +702,7 @@ class Bot {
       // Re-attach IRC listeners
       this.attachIRCListeners();
 
-      // Wait for connection
+      // Connect to IRC and wait for registration
       await new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
           reject(new Error('IRC connection timeout after 30s'));
@@ -706,6 +717,9 @@ class Bot {
           clearTimeout(timeout);
           reject(error);
         });
+
+        // Explicitly connect with retryCount: 0 (no auto-retry)
+        this.ircClient.connect(0);
       });
 
       logger.info(`✅ IRC reconnection successful to ${ircServerAddress} (${this.server})`);
@@ -718,6 +732,9 @@ class Bot {
       logger.error('❌ IRC reconnection failed:', error);
       this.recoveryManager.recordFailure('irc', error as Error);
       return false;
+    } finally {
+      // Always reset reconnection flag
+      this.ircReconnecting = false;
     }
   }
 
