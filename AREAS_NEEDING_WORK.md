@@ -64,7 +64,7 @@ const result = await Promise.race([
 
 ---
 
-### 3. ⚠️ PARTIAL - No Integration Tests for Connection Drop Scenarios
+### 3. ✅ COMPLETED - No Integration Tests for Connection Drop Scenarios
 
 **Issue:** Tests exist but don't cover:
 - IRC connection drop during operation
@@ -89,16 +89,22 @@ const result = await Promise.race([
 - Connection state consistency (2 tests)
 ```
 
-**Known Infrastructure Issue:**
-- Tests fail due to pre-existing bot.connect() mocking problem
-- bot.ircClient is undefined after connect() in test environment
-- Affects ALL bot integration tests (bot-events.test.ts 25/27 failures)
-- Root cause: DNS resolution in reconnectIRC() not mocked for tests
-- **Solution needed:** Mock DNS resolution and fix async bot initialization
+**Test Infrastructure Fixes:**
+- Mocked resolveViaGetent() to prevent Bun.spawn() in test environment
+- Added polling wait for setImmediate() callback to complete IRC client initialization
+- Mocked sendToDiscord/sendToIRC to return Promises for .catch() chains
+- Added readyState property to ClientStub
 
-**Tests Status:** Written and committed, awaiting test infrastructure fix
+**Edge Case Fixes Discovered by Tests:**
+- Fixed null error handling in IRC error handler (optional chaining)
+- Fixed null error handling in netError handler (optional chaining)
+- Fixed null error handling in RecoveryManager.recordFailure()
 
-**Files:** `test/connection-monitoring.test.ts` (created), bot tests infrastructure (needs fixing)
+**Tests Status:** ✅ 49/49 tests passing
+
+**Files:** `test/connection-monitoring.test.ts`, `test/stubs/irc-client-stub.ts`, `lib/bot.ts`, `lib/recovery-manager.ts`
+
+**Completed:** 2025-11-12 - All integration tests passing with full coverage
 
 ---
 
@@ -354,12 +360,11 @@ async cleanup(): Promise<void> {
 ## 📊 Summary
 
 **Total Issues Identified:** 15
-**Completed:** 12
-**Partial:** 1 (integration tests written, infrastructure needs fixing)
+**Completed:** 13
 **Remaining:** 2
 
 **By Priority:**
-- 🔴 High: 2 completed, 1 partial (tests written but need infra fix)
+- 🔴 High: 3 completed, 0 remaining ✅
 - 🟡 Medium: 4 completed, 0 remaining ✅
 - 🟢 Low: 6 completed, 2 remaining (webhook validation, misc enhancements)
 
@@ -385,10 +390,13 @@ async cleanup(): Promise<void> {
 4. ✅ **DONE** - Fix missing `cleanup()` in persistence-bun.ts
 5. ✅ **DONE** - Fix DNS reconnection loop (8000+ failures)
 6. ✅ **DONE** - Add graceful shutdown handlers
-7. 🔴 Write integration tests for connection drop scenarios
+7. ✅ **DONE** - Write integration tests for connection drop scenarios
 8. ✅ **DONE** - Test recovery manager reconnection
 9. ✅ **DONE** - Add connection status notifications
 10. ✅ **DONE** - Add IRC health Prometheus metrics
 
-**Estimated Time to Address High Priority:** ~2 hours (integration tests only)
-**Estimated Time to Address All Issues:** ~4-6 hours (tests + minor enhancements)
+**All High & Medium Priority Issues Completed!** ✅
+
+**Remaining Low Priority:**
+- Add webhook URL validation and fallback handling
+- Misc enhancements (nick colors docs, PM thread config, slash rate limits, DB cleanup timing)
