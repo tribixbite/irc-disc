@@ -64,7 +64,7 @@ const result = await Promise.race([
 
 ---
 
-### 3. No Integration Tests for Connection Drop Scenarios
+### 3. ⚠️ PARTIAL - No Integration Tests for Connection Drop Scenarios
 
 **Issue:** Tests exist but don't cover:
 - IRC connection drop during operation
@@ -72,18 +72,33 @@ const result = await Promise.race([
 - Health monitoring behavior
 - Recovery manager triggering reconnection
 
-**Needed Tests:**
+**Implementation:**
 ```typescript
-describe('IRC Connection Drop', () => {
-  it('should detect connection drop within 60 seconds');
-  it('should reject slash commands when IRC is down');
-  it('should timeout long-running IRC operations');
-  it('should trigger recovery manager on connection loss');
-  it('should update connection state on all IRC events');
-});
+// Created test/connection-monitoring.test.ts with 49 comprehensive tests:
+- Connection state tracking (5 tests)
+- Activity tracking (3 tests)
+- Recovery manager integration (6 tests)
+- Metrics tracking (8 tests)
+- Connection drop scenarios (6 tests)
+- Connection state persistence (2 tests)
+- Logging behavior (3 tests)
+- Reconnection flow (1 test)
+- Slash command protection (4 tests)
+- Health monitoring (5 tests)
+- Edge cases (6 tests)
+- Connection state consistency (2 tests)
 ```
 
-**Files:** Need new test file `test/connection-monitoring.test.ts`
+**Known Infrastructure Issue:**
+- Tests fail due to pre-existing bot.connect() mocking problem
+- bot.ircClient is undefined after connect() in test environment
+- Affects ALL bot integration tests (bot-events.test.ts 25/27 failures)
+- Root cause: DNS resolution in reconnectIRC() not mocked for tests
+- **Solution needed:** Mock DNS resolution and fix async bot initialization
+
+**Tests Status:** Written and committed, awaiting test infrastructure fix
+
+**Files:** `test/connection-monitoring.test.ts` (created), bot tests infrastructure (needs fixing)
 
 ---
 
@@ -340,12 +355,13 @@ async cleanup(): Promise<void> {
 
 **Total Issues Identified:** 15
 **Completed:** 12
-**Remaining:** 3
+**Partial:** 1 (integration tests written, infrastructure needs fixing)
+**Remaining:** 2
 
 **By Priority:**
-- 🔴 High: 2 completed, 1 remaining (integration tests)
+- 🔴 High: 2 completed, 1 partial (tests written but need infra fix)
 - 🟡 Medium: 4 completed, 0 remaining ✅
-- 🟢 Low: 6 completed, 2 remaining (webhook validation, nick colors/PM/slash rate limits/DB cleanup)
+- 🟢 Low: 6 completed, 2 remaining (webhook validation, misc enhancements)
 
 **Most Critical:**
 1. ✅ Add IRC connection checks to all IRC-dependent slash commands
