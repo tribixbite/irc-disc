@@ -2746,10 +2746,37 @@ export async function registerSlashCommands(bot: Bot): Promise<void> {
     }
 
     const commandData = slashCommands.map(command => command.data);
-    
-    await bot.discord.application.commands.set(commandData);
-    logger.info(`Successfully registered ${slashCommands.length} slash commands`);
-    
+
+    // Use guild-specific registration for instant availability
+    // Global registration takes up to 1 hour to propagate
+    const guilds = bot.discord.guilds.cache;
+
+    if (guilds.size > 0) {
+      // Register to all guilds the bot is in (instant)
+      let successCount = 0;
+      for (const [guildId, guild] of guilds) {
+        try {
+          await guild.commands.set(commandData);
+          logger.info(`Registered ${slashCommands.length} slash commands to guild: ${guild.name} (${guildId})`);
+          successCount++;
+        } catch (guildError) {
+          logger.error(`Failed to register commands to guild ${guild.name}:`, guildError);
+        }
+      }
+
+      if (successCount > 0) {
+        logger.info(`✅ Successfully registered slash commands to ${successCount} guild(s)`);
+      } else {
+        logger.warn('Failed to register commands to any guild, falling back to global');
+        await bot.discord.application.commands.set(commandData);
+        logger.info(`Registered ${slashCommands.length} slash commands globally (may take up to 1 hour to appear)`);
+      }
+    } else {
+      // No guilds available, register globally
+      await bot.discord.application.commands.set(commandData);
+      logger.info(`Registered ${slashCommands.length} slash commands globally (may take up to 1 hour to appear)`);
+    }
+
   } catch (error) {
     logger.error('Failed to register slash commands:', error);
   }

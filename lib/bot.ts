@@ -626,10 +626,10 @@ class Bot {
           resolve(void 0);
         });
       });
-      
-      // Re-register slash commands
-      await registerSlashCommands(this);
-      
+
+      // Note: Slash commands persist on Discord's servers, no need to re-register on reconnect
+      // They were registered during initial 'ready' event
+
       logger.info('Discord reconnection successful');
       this.metrics.recordDiscordReconnect();
       this.recoveryManager.recordSuccess('discord');
