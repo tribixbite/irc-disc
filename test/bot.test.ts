@@ -31,6 +31,8 @@ describe('Bot', async () => {
     bot = new Bot(conf);
     guild = bot.discord.guilds.cache.first();
     await bot.connect();
+    // Wait for setImmediate callback that initializes IRC client
+    await new Promise(resolve => setImmediate(resolve));
   };
 
   // modified variants of https://github.com/discordjs/discord.js/blob/stable/src/client/ClientDataManager.js
@@ -1082,10 +1084,11 @@ describe('Bot', async () => {
     it('pads too short usernames', async () => {
       const text = 'message';
       await bot.sendToDiscord('n', '#irc', text);
-      expect(sendWebhookMessageStub).toHaveBeenCalledWith(text, {
+      expect(sendWebhookMessageStub).toHaveBeenCalledWith({
+        content: text,
         username: 'n_',
         avatarURL: null,
-        disableMentions: 'everyone',
+        allowedMentions: { parse: ['users', 'roles'] },
       });
     });
 
@@ -1096,10 +1099,11 @@ describe('Bot', async () => {
         '#irc',
         text,
       );
-      expect(sendWebhookMessageStub).toHaveBeenCalledWith(text, {
+      expect(sendWebhookMessageStub).toHaveBeenCalledWith({
+        content: text,
         username: '12345678901234567890123456789012',
         avatarURL: null,
-        disableMentions: 'everyone',
+        allowedMentions: { parse: ['users', 'roles'] },
       });
     });
 
@@ -1116,10 +1120,11 @@ describe('Bot', async () => {
           new discord.Permissions(permission),
         );
       await bot.sendToDiscord('nick', '#irc', text);
-      expect(sendWebhookMessageStub).toHaveBeenCalledWith(text, {
+      expect(sendWebhookMessageStub).toHaveBeenCalledWith({
+        content: text,
         username: 'nick',
         avatarURL: null,
-        disableMentions: 'everyone',
+        allowedMentions: { parse: ['users', 'roles'] },
       });
     });
 
@@ -1137,10 +1142,11 @@ describe('Bot', async () => {
           new discord.Permissions(permission),
         );
       await bot.sendToDiscord('nick', '#irc', text);
-      expect(sendWebhookMessageStub).toHaveBeenCalledWith(text, {
+      expect(sendWebhookMessageStub).toHaveBeenCalledWith({
+        content: text,
         username: 'nick',
         avatarURL: null,
-        disableMentions: 'none',
+        allowedMentions: { parse: ['users', 'roles', 'everyone'] },
       });
     });
 

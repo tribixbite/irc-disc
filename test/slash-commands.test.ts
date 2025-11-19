@@ -3,7 +3,7 @@ import { slashCommands, statusCommand, usersCommand } from '../lib/slash-command
 
 describe('Slash Commands', () => {
   it('should export correct number of commands', () => {
-    expect(slashCommands).toHaveLength(4);
+    expect(slashCommands).toHaveLength(16);
   });
 
   it('should have proper command data structure', () => {
