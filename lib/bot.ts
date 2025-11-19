@@ -392,12 +392,12 @@ class Bot {
       await this.discord.login(this.discordToken);
       logger.info(`[DIAGNOSTIC] Discord login promise resolved for instance: ${(this.discord as any)._instanceId}`);
 
-      // CRITICAL DIAGNOSTIC: Event loop canary to detect blocking
-      // If this stops logging, the event loop is blocked by synchronous code
+      // Event loop canary to detect blocking (reduced frequency to avoid log bloat)
+      // Only log once per minute since the bot is stable
       setInterval(() => {
-        logger.info('[CANARY] Event loop is alive');
-      }, 2000);
-      logger.info('[DIAGNOSTIC] Event loop canary started (logs every 2s)');
+        logger.debug('[CANARY] Event loop is alive');
+      }, 60000);
+      logger.info('[DIAGNOSTIC] Event loop canary started (logs every 60s at debug level)');
 
     } catch (error) {
       logger.error('Discord login promise rejected:', error);
@@ -1866,7 +1866,7 @@ class Bot {
    */
   private startIRCHealthMonitoring(): void {
     // Check IRC connection health every 60 seconds
-    this.ircHealthCheckInterval = setInterval(() => {
+    this.ircHealthCheckInterval = setInterval(async () => {
       const health = this.getIRCConnectionHealth();
       const staleThreshold = 5 * 60 * 1000; // 5 minutes
 
@@ -1874,8 +1874,26 @@ class Bot {
         logger.warn(`⚠️  IRC connection may be stale - no activity for ${Math.round(health.timeSinceActivity / 1000)}s`);
       }
 
+      // AUTO-RECONNECT: If IRC is down and circuit breaker is available, attempt reconnection
       if (!health.connected) {
-        logger.warn('⚠️  IRC connection is down');
+        const isServiceAvailable = this.recoveryManager.isServiceAvailable('irc');
+
+        if (isServiceAvailable && !this.ircReconnecting) {
+          logger.info('🔄 IRC is down but circuit breaker is reset - attempting auto-reconnect');
+          try {
+            const success = await this.reconnectIRC();
+            if (success) {
+              logger.info('✅ Auto-reconnect successful');
+            } else {
+              logger.warn('⚠️  Auto-reconnect failed, will retry on next health check');
+            }
+          } catch (error) {
+            logger.error('❌ Auto-reconnect error:', error);
+          }
+        } else if (!isServiceAvailable) {
+          // Only log occasionally to avoid spam (circuit breaker timeout is 5 min)
+          logger.debug('⚠️  IRC connection is down (circuit breaker active, will reset and retry)');
+        }
       }
     }, 60000); // Every 60 seconds
   }
