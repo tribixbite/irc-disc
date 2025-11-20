@@ -2,6 +2,47 @@
 
 ## 🚀 Current Work (2025-11-20)
 
+### ✅ S3 and Slash Command Test Improvements (Round 13)
+**Date:** 2025-11-20
+**Files:** `test/s3-uploader.test.ts`, `test/slash-commands.test.ts`
+
+**Changes:**
+Eliminated 26 `any` types from 2 test files using proper type casting patterns:
+
+1. **test/s3-uploader.test.ts (22 any types → 0):**
+   - Created `S3UploaderWithPrivates` interface to define private method signatures for testing
+   - Interface includes: `generateFilename()`, `getContentType()`, `generatePublicUrl()`, `config` property
+   - Replaced all 22 instances of `(uploader as any).method()` with double cast pattern
+   - Pattern: `(uploader as unknown as S3UploaderWithPrivates).method()`
+   - Interface is standalone (doesn't extend S3Uploader) to avoid private/public conflicts
+   - Enables comprehensive testing of private methods with type safety
+
+2. **test/slash-commands.test.ts (4 any types → 0):**
+   - Used existing `TestCommandData` interface from Round 12
+   - Replaced `(s3Command.data as any).options.find((opt: any) => ...)`
+   - With typed: `data.options!.find((opt) => opt.name === 'share')`
+   - Added non-null assertions (`!`) after `toBeDefined()` checks
+   - Renamed `statusCommand` to `statusSubcommand` to avoid variable collision
+
+**Results:**
+- Linting errors: 74 → 48 (35% reduction, 26 fewer errors)
+- `no-explicit-any` errors: 57 → 31 (46% reduction, 26 fewer)
+- All tests passing: 233/233 ✅
+- Build successful ✅
+
+**Overall Progress from Start:**
+- **Linting errors:** 178 → 48 (73% reduction, 130 fewer)
+- **no-explicit-any:** 83 initial → 31 remaining (63% reduction, 52 fewer)
+- **All 233 tests passing throughout all 13 rounds**
+
+**Pattern Established:**
+- **Private member testing:** Create standalone interface with method signatures
+- **Double cast:** Use `as unknown as InterfaceType` instead of `as any`
+- **No extension:** Interface doesn't extend class (prevents private/public conflicts)
+- **Type safety:** Maintains full TypeScript checking while testing private implementation
+
+**Status:** COMPLETED ✅
+
 ### ✅ Test File Type Safety (Round 12)
 **Date:** 2025-11-20
 **Files:** `test/slash-commands.test.ts`, `test/bot-events.test.ts`, `test/connection-monitoring.test.ts`
