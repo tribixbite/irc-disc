@@ -31,6 +31,49 @@ export interface S3Config {
   updatedAt: number;
 }
 
+// Database row types for SQLite queries
+interface PMThreadRow {
+  irc_nick: string;
+  thread_id: string;
+  channel_id: string;
+  last_activity: number;
+}
+
+interface ChannelUsersRow {
+  channel: string;
+  users_json: string;
+  last_updated: number;
+}
+
+interface MessageMappingRow {
+  discord_id: string;
+  irc_channel: string;
+  irc_nick: string;
+  timestamp: number;
+}
+
+interface MetricRow {
+  name: string;
+  value: string;
+  timestamp: number;
+}
+
+interface S3ConfigRow {
+  guild_id: string;
+  bucket: string;
+  region: string;
+  endpoint: string | null;
+  access_key_id: string;
+  secret_access_key_encrypted: string;
+  key_prefix: string | null;
+  public_url_base: string | null;
+  force_path_style: number;
+  max_file_size_mb: number;
+  allowed_roles: string | null;
+  created_at: number;
+  updated_at: number;
+}
+
 /**
  * Encrypt a secret using AES-256-GCM
  * @param plaintext Secret to encrypt
@@ -116,9 +159,10 @@ export class PersistenceService {
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         return await operation();
-      } catch (error: any) {
+      } catch (error: unknown) {
         // Check if this is a SQLITE_BUSY error (SQLITE_BUSY = 5)
-        const isBusyError = error?.code === 'SQLITE_BUSY' || error?.errno === 5;
+        const errorObj = error as { code?: string; errno?: number };
+        const isBusyError = errorObj?.code === 'SQLITE_BUSY' || errorObj?.errno === 5;
 
         if (!isBusyError || attempt === maxRetries) {
           // Not a busy error or out of retries - throw the error
@@ -215,10 +259,10 @@ export class PersistenceService {
   async getPMThread(ircNick: string): Promise<PMThreadData | null> {
     return new Promise((resolve, _reject) => {
       this.db.get(`
-        SELECT irc_nick, thread_id, channel_id, last_activity 
-        FROM pm_threads 
+        SELECT irc_nick, thread_id, channel_id, last_activity
+        FROM pm_threads
         WHERE irc_nick = ?
-      `, [ircNick.toLowerCase()], (err, row: any) => {
+      `, [ircNick.toLowerCase()], (err, row: PMThreadRow | undefined) => {
         if (err) {
           logger.error('Failed to get PM thread:', err);
           resolve(null);
@@ -241,9 +285,9 @@ export class PersistenceService {
     
     return new Promise((resolve) => {
       this.db.all(`
-        SELECT irc_nick, thread_id 
+        SELECT irc_nick, thread_id
         FROM pm_threads
-      `, (err, rows: any[]) => {
+      `, (err, rows: PMThreadRow[]) => {
         if (err) {
           logger.error('Failed to load PM threads:', err);
           resolve(result);
@@ -318,10 +362,10 @@ export class PersistenceService {
   async getChannelUsers(channel: string): Promise<Set<string>> {
     return new Promise((resolve) => {
       this.db.get(`
-        SELECT users 
-        FROM channel_users 
+        SELECT users
+        FROM channel_users
         WHERE channel = ?
-      `, [channel], (err, row: any) => {
+      `, [channel], (err, row: { users: string } | undefined) => {
         if (err) {
           logger.error('Failed to get channel users:', err);
           resolve(new Set());
@@ -345,9 +389,9 @@ export class PersistenceService {
     
     return new Promise((resolve) => {
       this.db.all(`
-        SELECT channel, users 
+        SELECT channel, users
         FROM channel_users
-      `, (err, rows: any[]) => {
+      `, (err, rows: Array<{ channel: string; users: string }>) => {
         if (err) {
           logger.error('Failed to load channel users:', err);
           resolve(result);
@@ -387,10 +431,10 @@ export class PersistenceService {
   async getMetric(key: string): Promise<string | null> {
     return new Promise((resolve) => {
       this.db.get(`
-        SELECT value 
-        FROM bot_metrics 
+        SELECT value
+        FROM bot_metrics
         WHERE key = ?
-      `, [key], (err, row: any) => {
+      `, [key], (err, row: { value: string } | undefined) => {
         if (err) {
           logger.error('Failed to get metric:', err);
           resolve(null);
@@ -463,7 +507,7 @@ export class PersistenceService {
     return new Promise((resolve, reject) => {
       this.db.get(`
         SELECT * FROM guild_s3_configs WHERE guild_id = ?
-      `, [guildId], (err, row: any) => {
+      `, [guildId], (err, row: S3ConfigRow | undefined) => {
         if (err) {
           logger.error('Failed to get S3 config:', err);
           reject(err);
