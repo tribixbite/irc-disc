@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { slashCommands, statusCommand, usersCommand, s3Command } from '../lib/slash-commands';
 
 describe('Slash Commands', () => {

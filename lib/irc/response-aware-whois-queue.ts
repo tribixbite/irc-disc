@@ -95,7 +95,7 @@ export class ResponseAwareWhoisQueue {
   /**
    * Wait for RPL_ENDOFWHOIS (318) response for a specific nick
    */
-  private waitForWhoisResponse(nick: string): Promise<void> {
+  private async waitForWhoisResponse(nick: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         // Timeout - cleanup listener and reject

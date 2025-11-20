@@ -438,7 +438,7 @@ export const directPmCommand: SlashCommand = {
         try {
           const fetched = await bot.discord.channels.fetch(existingThreadId);
           if (fetched?.isThread()) {
-            thread = fetched as ThreadChannel;
+            thread = fetched;
 
             // Unarchive if needed
             if (thread.archived) {

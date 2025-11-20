@@ -245,7 +245,7 @@ export class RecoveryManager extends EventEmitter {
   /**
    * Sleep for specified milliseconds
    */
-  private sleep(ms: number): Promise<void> {
+  private async sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 

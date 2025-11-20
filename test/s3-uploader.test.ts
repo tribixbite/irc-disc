@@ -10,7 +10,7 @@ vi.mock('@aws-sdk/client-s3', () => ({
 }));
 
 vi.mock('@aws-sdk/s3-request-presigner', () => ({
-  getSignedUrl: vi.fn(() => Promise.resolve('https://signed-url.example.com'))
+  getSignedUrl: vi.fn(async () => Promise.resolve('https://signed-url.example.com'))
 }));
 
 describe('S3Uploader', () => {
@@ -90,8 +90,6 @@ describe('S3Uploader', () => {
     });
 
     it('should generate unique filenames', () => {
-      const buffer = Buffer.from('test content');
-      
       // Generate multiple filenames
       const filename1 = (uploader as any).generateFilename('test.jpg');
       const filename2 = (uploader as any).generateFilename('test.jpg');

@@ -195,7 +195,7 @@ export class PersistenceService {
   async savePMThread(ircNick: string, threadId: string, channelId: string): Promise<void> {
     const now = Date.now();
 
-    return this.writeWithRetry(() => new Promise<void>((resolve, reject) => {
+    return this.writeWithRetry(async () => new Promise<void>((resolve, reject) => {
       this.db.run(`
         INSERT OR REPLACE INTO pm_threads
         (irc_nick, thread_id, channel_id, last_activity)
@@ -259,7 +259,7 @@ export class PersistenceService {
   }
 
   async updatePMThreadNick(oldNick: string, newNick: string): Promise<void> {
-    return this.writeWithRetry(() => new Promise<void>((resolve, reject) => {
+    return this.writeWithRetry(async () => new Promise<void>((resolve, reject) => {
       this.db.run(`
         UPDATE pm_threads
         SET irc_nick = ?, last_activity = ?
@@ -277,7 +277,7 @@ export class PersistenceService {
   }
 
   async deletePMThread(ircNick: string): Promise<void> {
-    return this.writeWithRetry(() => new Promise<void>((resolve, reject) => {
+    return this.writeWithRetry(async () => new Promise<void>((resolve, reject) => {
       this.db.run(`
         DELETE FROM pm_threads
         WHERE irc_nick = ?
@@ -298,7 +298,7 @@ export class PersistenceService {
     const usersJson = JSON.stringify(usersArray);
     const now = Date.now();
 
-    return this.writeWithRetry(() => new Promise<void>((resolve, reject) => {
+    return this.writeWithRetry(async () => new Promise<void>((resolve, reject) => {
       this.db.run(`
         INSERT OR REPLACE INTO channel_users
         (channel, users, last_updated)
@@ -368,7 +368,7 @@ export class PersistenceService {
   }
 
   async saveMetric(key: string, value: string): Promise<void> {
-    return this.writeWithRetry(() => new Promise<void>((resolve, reject) => {
+    return this.writeWithRetry(async () => new Promise<void>((resolve, reject) => {
       this.db.run(`
         INSERT OR REPLACE INTO bot_metrics
         (key, value)
@@ -415,7 +415,7 @@ export class PersistenceService {
     const encryptedSecret = encryptSecret(config.secretAccessKey, encryptionKey);
     const allowedRolesJson = config.allowedRoles ? JSON.stringify(config.allowedRoles) : null;
 
-    return this.writeWithRetry(() => new Promise<void>((resolve, reject) => {
+    return this.writeWithRetry(async () => new Promise<void>((resolve, reject) => {
       this.db.run(`
         INSERT OR REPLACE INTO guild_s3_configs
         (guild_id, bucket, region, endpoint, access_key_id, secret_access_key_encrypted,
@@ -502,7 +502,7 @@ export class PersistenceService {
    * Delete S3 configuration for a guild
    */
   async deleteS3Config(guildId: string): Promise<void> {
-    return this.writeWithRetry(() => new Promise<void>((resolve, reject) => {
+    return this.writeWithRetry(async () => new Promise<void>((resolve, reject) => {
       this.db.run(`
         DELETE FROM guild_s3_configs WHERE guild_id = ?
       `, [guildId], (err) => {
@@ -542,7 +542,7 @@ export class PersistenceService {
     ];
 
     for (const query of queries) {
-      await this.writeWithRetry(() => new Promise<void>((resolve, reject) => {
+      await this.writeWithRetry(async () => new Promise<void>((resolve, reject) => {
         this.db.run(query.sql, query.params, (err) => {
           if (err) {
             logger.error('Failed to cleanup database:', err);
