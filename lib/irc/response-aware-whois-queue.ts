@@ -1,6 +1,11 @@
 import { EventEmitter } from 'events';
 import { logger } from '../logger';
 
+// IRC client interface with whois method
+interface IRCClientWithWhois extends EventEmitter {
+  whois(nick: string): void;
+}
+
 /**
  * Response-aware WHOIS queue that prevents IRC server flood kicks
  *
@@ -14,10 +19,10 @@ import { logger } from '../logger';
 export class ResponseAwareWhoisQueue {
   private queue: string[] = [];
   private isProcessing = false;
-  private ircClient: EventEmitter;
+  private ircClient: IRCClientWithWhois;
   private timeoutMs: number;
 
-  constructor(ircClient: EventEmitter, timeoutMs: number = 5000) {
+  constructor(ircClient: IRCClientWithWhois, timeoutMs: number = 5000) {
     this.ircClient = ircClient;
     this.timeoutMs = timeoutMs;
   }
@@ -120,8 +125,8 @@ export class ResponseAwareWhoisQueue {
 
       // Send the WHOIS request
       try {
-        // Access the whois method on the IRC client
-        (this.ircClient as any).whois(nick);
+        // Send WHOIS request
+        this.ircClient.whois(nick);
       } catch (error) {
         // Failed to send WHOIS - cleanup and reject
         clearTimeout(timer);

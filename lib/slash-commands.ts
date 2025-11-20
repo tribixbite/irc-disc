@@ -2132,8 +2132,17 @@ export const ircUserInfoCommand: SlashCommand = {
         }
 
         case 'search': {
-          const searchCriteria: any = {};
-          
+          interface UserSearchCriteria {
+            nick?: string;
+            hostname?: string;
+            realname?: string;
+            channel?: string;
+            isOperator?: boolean;
+            isSecure?: boolean;
+          }
+
+          const searchCriteria: UserSearchCriteria = {};
+
           const nick = interaction.options.getString('nick');
           const hostname = interaction.options.getString('hostname');
           const realname = interaction.options.getString('realname');
