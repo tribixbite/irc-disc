@@ -444,7 +444,8 @@ class Bot {
     // The IRC client constructor blocks the event loop synchronously,
     // starving Discord.js and preventing message events. setImmediate()
     // allows Discord to process messages before IRC initialization blocks.
-    setImmediate(async () => {
+    setImmediate(() => {
+      void (async () => {
       try {
         logger.info('Initializing IRC client in next event loop tick...');
 
@@ -482,6 +483,7 @@ class Bot {
       } catch (error) {
         logger.error('Failed to initialize IRC client:', error);
       }
+      })();
     });
 
     // Start metrics HTTP server if configured
@@ -523,7 +525,8 @@ class Bot {
   
   private setupRecoveryHandlers(): void {
     // Handle recovery attempts
-    this.recoveryManager.on('attemptReconnection', async (service: 'discord' | 'irc', callback: (success: boolean) => void) => {
+    this.recoveryManager.on('attemptReconnection', (service: 'discord' | 'irc', callback: (success: boolean) => void) => {
+      void (async () => {
       try {
         logger.info(`Attempting to reconnect ${service}...`);
         
@@ -538,6 +541,7 @@ class Bot {
         logger.error(`Reconnection attempt failed for ${service}:`, error);
         callback(false);
       }
+      })();
     });
 
     // Log recovery events
@@ -1866,7 +1870,8 @@ class Bot {
    */
   private startIRCHealthMonitoring(): void {
     // Check IRC connection health every 60 seconds
-    this.ircHealthCheckInterval = setInterval(async () => {
+    this.ircHealthCheckInterval = setInterval(() => {
+      void (async () => {
       const health = this.getIRCConnectionHealth();
       const staleThreshold = 5 * 60 * 1000; // 5 minutes
 
@@ -1895,6 +1900,7 @@ class Bot {
           logger.debug('⚠️  IRC connection is down (circuit breaker active, will reset and retry)');
         }
       }
+      })();
     }, 60000); // Every 60 seconds
   }
 

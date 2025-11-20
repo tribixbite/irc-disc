@@ -60,7 +60,7 @@ describe('Bot Events', () => {
 
   afterEach(async function () {
     if (bot?.ircClient) {
-      bot.disconnect();
+      await bot.disconnect();
     }
     vi.restoreAllMocks();
   });

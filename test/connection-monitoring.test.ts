@@ -79,9 +79,9 @@ describe('IRC Connection Monitoring', () => {
     }
   });
 
-  afterEach(function () {
+  afterEach(async function () {
     if (bot && bot.ircClient) {
-      bot.disconnect();
+      await bot.disconnect();
     }
     vi.restoreAllMocks();
   });

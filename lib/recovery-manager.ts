@@ -106,9 +106,9 @@ export class RecoveryManager extends EventEmitter {
     
     logger.error(`${service} connection failure recorded:`, error?.message || error || 'Unknown error');
     this.emit('serviceUnhealthy', service, health, error);
-    
-    // Trigger recovery if not already recovering
-    this.triggerRecovery(service, error);
+
+    // Trigger recovery if not already recovering (fire-and-forget)
+    void this.triggerRecovery(service, error);
   }
 
   /**

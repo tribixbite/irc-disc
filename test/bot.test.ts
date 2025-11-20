@@ -163,7 +163,7 @@ describe('Bot', async () => {
       guild: guild,
     });
 
-    bot.sendToIRC(message);
+    void bot.sendToIRC(message);
     const expected = `<${message.author.username}> ${text}`;
     expect(sayMock).toHaveBeenCalledWith('#irc', expected);
   });
@@ -185,7 +185,7 @@ describe('Bot', async () => {
       guild: guild,
     });
 
-    bot.sendToIRC(message);
+    void bot.sendToIRC(message);
     const expected = `<\u000307${message.author.username}\u000f> ${text}`;
     expect(sayMock).toHaveBeenCalledWith('#irc', expected);
   });
@@ -205,7 +205,7 @@ describe('Bot', async () => {
       guild: guild,
     });
 
-    bot.sendToIRC(message);
+    void bot.sendToIRC(message);
     // Wrap in colors:
     const expected = `<\u000304${message.author.username}\u000f> ${text}`;
     expect(sayMock).toHaveBeenCalledWith('#irc', expected);
@@ -229,7 +229,7 @@ describe('Bot', async () => {
 
     // Wrap it in colors:
     const expected = `<\u000312${message.author.username}\u000f> test message`;
-    bot.sendToIRC(message);
+    void bot.sendToIRC(message);
     expect(sayMock).toHaveBeenCalledWith('#channelforid', expected);
   });
 
@@ -251,7 +251,7 @@ describe('Bot', async () => {
 
     // Wrap it in colors:
     const expected = `<\u000312${message.author.username}\u000f> test message`;
-    bot.sendToIRC(message);
+    void bot.sendToIRC(message);
     expect(sayMock).toHaveBeenCalledWith('#irc', expected);
   });
 
@@ -271,7 +271,7 @@ describe('Bot', async () => {
       guild: guild,
     });
 
-    bot.sendToIRC(message);
+    void bot.sendToIRC(message);
     const expected = `<\u000304${message.author.username}\u000f> ${attachmentUrl}`;
     expect(sayMock).toHaveBeenCalledWith('#irc', expected);
   });
@@ -293,7 +293,7 @@ describe('Bot', async () => {
       guild: guild,
     });
 
-    bot.sendToIRC(message);
+    void bot.sendToIRC(message);
 
     expect(sayMock).toHaveBeenCalledWith(
       '#irc',
@@ -319,7 +319,7 @@ describe('Bot', async () => {
       guild: guild,
     });
 
-    bot.sendToIRC(message);
+    void bot.sendToIRC(message);
 
     expect(sayMock).toHaveBeenCalledOnce();
   });
@@ -333,7 +333,7 @@ describe('Bot', async () => {
       guild: guild,
     });
 
-    bot.sendToIRC(message);
+    void bot.sendToIRC(message);
     expect(sayMock).not.toHaveBeenCalled();
   });
 
@@ -349,7 +349,7 @@ describe('Bot', async () => {
       guild: guild,
     });
 
-    bot.sendToIRC(message);
+    void bot.sendToIRC(message);
     expect(sayMock).not.toHaveBeenCalled();
   });
 
@@ -373,7 +373,7 @@ describe('Bot', async () => {
       guild: guild,
     });
 
-    bot.sendToIRC(message);
+    void bot.sendToIRC(message);
     // Wrap in colors:
     const expected = `<\u000304${brokenNickname}\u000f> ${text}`;
     expect(sayMock).toHaveBeenCalledWith('#irc', expected);
@@ -397,7 +397,7 @@ describe('Bot', async () => {
 
     // Wrap it in colors:
     const expected = `<\u000312${message.author.username}\u000f> #${channelName}`;
-    bot.sendToIRC(message);
+    void bot.sendToIRC(message);
     expect(sayMock).toHaveBeenCalledWith('#irc', expected);
   });
 
@@ -419,7 +419,7 @@ describe('Bot', async () => {
     // Discord displays "#deleted-channel" if channel doesn't exist (e.g. <#1235>)
     // Wrap it in colors:
     const expected = `<\u000312${message.author.username}\u000f> #deleted-channel`;
-    bot.sendToIRC(message);
+    void bot.sendToIRC(message);
     expect(sayMock).toHaveBeenCalledWith('#irc', expected);
   });
 
@@ -558,7 +558,7 @@ describe('Bot', async () => {
       guild: guild,
     });
 
-    bot.sendToIRC(message);
+    void bot.sendToIRC(message);
     expect(sayMock.mock.calls[0]).toEqual([
       '#irc',
       'Command sent from Discord by test:',
@@ -582,7 +582,7 @@ describe('Bot', async () => {
       guild: guild,
     });
 
-    bot.sendToIRC(message);
+    void bot.sendToIRC(message);
     expect(sayMock.mock.calls[0]).toEqual([
       '#irc',
       'Command sent from Discord by test:',
@@ -621,7 +621,7 @@ describe('Bot', async () => {
       guild: guild,
     });
 
-    bot.sendToIRC(message);
+    void bot.sendToIRC(message);
     const expected = `<${nickname}> ${text}`;
     expect(sayMock).toHaveBeenCalledWith('#irc', expected);
   });
@@ -716,7 +716,7 @@ describe('Bot', async () => {
       guild: guild,
     });
 
-    bot.sendToIRC(message);
+    void bot.sendToIRC(message);
     expect(sendStub).toHaveBeenCalledTimes(1);
   });
 
@@ -764,7 +764,7 @@ describe('Bot', async () => {
       guild: guild,
     });
 
-    bot.sendToIRC(message);
+    void bot.sendToIRC(message);
     expect(sendStub).toHaveBeenCalledTimes(1);
   });
 
@@ -828,7 +828,7 @@ describe('Bot', async () => {
     });
     const expected = '<testauthor> #discord => #irc: test message';
 
-    bot.sendToIRC(message);
+    void bot.sendToIRC(message);
     expect(sayMock).toHaveBeenCalledWith('#irc', expected);
   });
 
@@ -854,7 +854,7 @@ describe('Bot', async () => {
     });
     const expected = 'testauthor from #discord sent command to #irc:';
 
-    bot.sendToIRC(message);
+    void bot.sendToIRC(message);
     expect(sayMock.mock.calls[0]).toEqual(['#irc', expected]);
     expect(sayMock.mock.calls[1]).toEqual(['#irc', text]);
   });
@@ -881,7 +881,7 @@ describe('Bot', async () => {
       guild: guild,
     });
 
-    bot.sendToIRC(message);
+    void bot.sendToIRC(message);
     const expected = `<otherauthor> #discord => #irc, attachment: ${attachmentUrl}`;
     expect(sayMock).toHaveBeenCalledWith('#irc', expected);
   });
@@ -904,7 +904,7 @@ describe('Bot', async () => {
       guild: guild,
     });
 
-    bot.sendToIRC(message);
+    void bot.sendToIRC(message);
     expect(sayMock).toHaveBeenCalledOnce();
     expect(sayMock.mock.calls[0]).toEqual(['#irc', text]);
 
@@ -1162,7 +1162,7 @@ describe('Bot', async () => {
       guild: guild,
     });
 
-    bot.sendToIRC(message);
+    void bot.sendToIRC(message);
     expect(sayMock).not.toHaveBeenCalled();
   });
 
@@ -1180,7 +1180,7 @@ describe('Bot', async () => {
       guild: guild,
     });
 
-    bot.sendToIRC(message);
+    void bot.sendToIRC(message);
     expect(sayMock).not.toHaveBeenCalled();
   });
 });

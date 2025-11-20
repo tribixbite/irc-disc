@@ -204,8 +204,8 @@ export async function run(): Promise<void> {
       }
     };
 
-    process.on('SIGTERM', async () => shutdown('SIGTERM'));
-    process.on('SIGINT', async () => shutdown('SIGINT'));
+    process.on('SIGTERM', () => { void shutdown('SIGTERM'); });
+    process.on('SIGINT', () => { void shutdown('SIGINT'); });
 
   } catch (error) {
     if (error instanceof ZodError) {

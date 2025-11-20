@@ -2,6 +2,39 @@
 
 ## 🚀 Current Work (2025-11-20)
 
+### ✅ Promise Handling Improvements (Round 8)
+**Date:** 2025-11-20
+**Files:** `lib/recovery-manager.ts`, `lib/bot.ts`, `lib/cli.ts`, `test/bot.test.ts`, `test/bot-events.test.ts`, `test/connection-monitoring.test.ts`
+
+**Improvements:**
+1. **Fixed floating promise errors** (27 fixed)
+   - recovery-manager.ts:111: Added `void` operator for fire-and-forget recovery trigger
+   - test/bot.test.ts: Added `void` operator to 24 test calls to `bot.sendToIRC()`
+   - test/bot-events.test.ts:63: Changed afterEach to async and awaited `bot.disconnect()`
+   - test/connection-monitoring.test.ts:84: Changed afterEach to async and awaited `bot.disconnect()`
+   - Pattern: Fire-and-forget promises marked with `void`, critical cleanup properly awaited
+
+2. **Fixed misused promise errors** (5 fixed)
+   - bot.ts:447: Wrapped async callback in setImmediate with void IIFE pattern
+   - bot.ts:526: Wrapped async event handler for attemptReconnection with void IIFE
+   - bot.ts:1869: Wrapped async setInterval callback with void IIFE pattern
+   - cli.ts:207-208: Wrapped async signal handlers (SIGTERM/SIGINT) with void operator
+   - Pattern: `setImmediate/setInterval(() => { void (async () => { ... })(); })`
+
+**Testing:**
+- ✅ All 233 tests passing
+- ✅ Build successful
+- ✅ No regressions
+
+**Results:**
+- Reduced linting errors from 137 to 104 (33 fewer problems, 24% reduction)
+- Total session reduction: 74 problems (42% reduction from 178 start)
+- All async callbacks now properly handle promises
+- Fire-and-forget operations explicitly marked
+- Critical cleanup operations properly awaited
+
+**Status:** COMPLETED ✅
+
 ### ✅ Quick-Win Linting Fixes (Round 7)
 **Date:** 2025-11-20
 **Files:** `lib/bot.ts`, `lib/irc/response-aware-whois-queue.ts`, `lib/persistence.ts`, `lib/slash-commands.ts`, `test/pm-basic.test.ts`, `lib/metrics-server.ts`, `eslint.config.js`, `lib/s3-uploader.ts`, `test/connection-monitoring.test.ts`
@@ -1576,17 +1609,16 @@ Added `this.recoveryManager.recordSuccess()` calls at 5 locations:
 - **Round 5**: Fixed 2 remaining skipped tests (100% test suite enabled)
 - **Round 6**: ESLint config + removed unused imports (9 issues)
 - **Round 7**: Quick-win fixes: require imports, unused vars, promise rejections (13 issues)
-- **Total Fixed**: 53 linting issues + 10 dead tests + 2 skipped tests
-- **Linting Progress**: 178 → 137 problems (23% reduction, 41 fewer errors)
+- **Round 8**: Promise handling: floating promises + misused promises (33 issues)
+- **Total Fixed**: 86 linting issues + 10 dead tests + 2 skipped tests
+- **Linting Progress**: 178 → 104 problems (42% reduction, 74 fewer errors)
 - **Test Progress**: 243 tests (12 skipped) → 233 tests (0 skipped, all passing)
-- **Commits**: 7 commits (fe7efaa, 1e5cb23, 24463ee, 3a068c3, 48678a8, 5322022, 86072c1 + pending)
+- **Commits**: 8 commits (fe7efaa, 1e5cb23, 24463ee, 3a068c3, 48678a8, 5322022, 86072c1, 9e78745 + pending)
 - **Tests**: All 233 tests passing, 100% enabled
 
-**Remaining Linting Issues (137 total):**
-- 83 `no-explicit-any` - Would require comprehensive type definitions
-- 27 `no-floating-promises` - Promises not being awaited or caught
-- 17 `require-await` - Async functions without await (intentional for API consistency)
-- 5 `no-misused-promises` - Promises used incorrectly
+**Remaining Linting Issues (104 total):**
+- 83 `no-explicit-any` - Would require comprehensive type definitions (major refactor)
+- 16 `require-await` - Async functions without await (intentional for API consistency)
 - 3 Parsing errors - Expected for .js files not in tsconfig
 - 2 Other minor issues
 
