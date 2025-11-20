@@ -1467,10 +1467,12 @@ Added `this.recoveryManager.recordSuccess()` calls at 5 locations:
 - **Round 1**: Fixed TODO, removed 6 unused variables, cleaned up 2 assignments (10 issues)
 - **Round 2**: Fixed unused parameter, removed 2 type assertions (3 issues)
 - **Round 3**: ESLint auto-fix + removed unused imports/variables (18 issues)
-- **Total Fixed**: 31 linting issues across 3 rounds
+- **Round 4**: Removed 10 dead skipped tests (~650 lines of dead code)
+- **Total Fixed**: 31 linting issues + 10 dead tests removed
 - **Linting Progress**: 178 → 158 problems (11.2% reduction)
-- **Commits**: 3 commits (fe7efaa, 1e5cb23 + previous work)
-- **Tests**: All 243 tests passing throughout (231 passed, 12 skipped)
+- **Test Cleanup**: 243 → 233 tests (10 dead tests removed, 2 valid skipped tests remain)
+- **Commits**: 4 commits (fe7efaa, 1e5cb23, 24463ee, 3a068c3)
+- **Tests**: All 231 passing tests throughout session
 
 **Remaining Linting Issues (158 total):**
 - 83 `no-explicit-any` - Would require comprehensive type definitions
