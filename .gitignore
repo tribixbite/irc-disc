@@ -41,3 +41,8 @@ railway.env
 dist/
 .idea/
 config.json
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
