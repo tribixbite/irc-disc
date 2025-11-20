@@ -13,7 +13,7 @@ import { validateChannelMapping } from './validators';
 import { formatFromDiscordToIRC, formatFromIRCToDiscord } from './formatting';
 // Use runtime-conditional persistence (Bun.Database for Bun, sqlite3 for Node)
 import { PersistenceService } from './persistence-wrapper.js';
-import { registerSlashCommands, handleSlashCommand } from './slash-commands';
+import { registerSlashCommands, handleSlashCommand, handleButtonInteraction } from './slash-commands';
 import { MessageSynchronizer } from './message-sync';
 import { MetricsCollector } from './metrics';
 import { MetricsServer } from './metrics-server';
@@ -830,9 +830,11 @@ class Bot {
 
     // Handle slash command interactions
     this.discord.on('interactionCreate', async (interaction) => {
-      if (!interaction.isCommand()) return;
-      
-      await handleSlashCommand(interaction, this);
+      if (interaction.isCommand()) {
+        await handleSlashCommand(interaction, this);
+      } else if (interaction.isButton()) {
+        await handleButtonInteraction(interaction, this);
+      }
     });
 
     // Handle message edits and deletions

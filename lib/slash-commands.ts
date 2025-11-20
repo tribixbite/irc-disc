@@ -1248,8 +1248,24 @@ async function handleS3FilesCommands(interaction: CommandInteraction, bot: Bot, 
         }).join('\n');
 
         embed.addField(`Files (${result.objects.length})`, fileList.substring(0, 1024), false);
-        if (result.isTruncated) embed.setFooter({ text: 'More files available. Use prefix to filter.' });
-        await interaction.editReply({ embeds: [embed] });
+
+        // Add pagination buttons if there are more results
+        const components: MessageActionRow[] = [];
+        if (result.isTruncated && result.nextContinuationToken) {
+          const row = new MessageActionRow().addComponents(
+            new MessageButton()
+              .setCustomId(`s3_list_next_${result.nextContinuationToken}_${prefix || 'null'}`)
+              .setLabel('Next →')
+              .setStyle('PRIMARY')
+          );
+          components.push(row);
+          embed.setFooter({ text: 'Page 1 - More files available' });
+        }
+
+        await interaction.editReply({
+          embeds: [embed],
+          components
+        });
       } catch (error) {
         await interaction.editReply({ content: `❌ List failed: ${(error as Error).message}` });
       }
@@ -3351,13 +3367,143 @@ export async function handleSlashCommand(interaction: CommandInteraction, bot: B
     
   } catch (error) {
     logger.error(`Error executing slash command ${interaction.commandName}:`, error);
-    
+
     const errorMessage = '❌ There was an error executing this command.';
-    
+
     if (interaction.replied || interaction.deferred) {
       await interaction.followUp({ content: errorMessage, ephemeral: true });
     } else {
       await interaction.reply({ content: errorMessage, ephemeral: true });
     }
+  }
+}
+
+// Button interaction handler
+export async function handleButtonInteraction(interaction: any, bot: Bot): Promise<void> {
+  const customId = interaction.customId;
+
+  // Handle S3 list pagination buttons
+  if (customId.startsWith('s3_list_')) {
+    await handleS3ListPagination(interaction, bot);
+    return;
+  }
+
+  // Unknown button
+  await interaction.reply({
+    content: '❌ Unknown button interaction.',
+    ephemeral: true
+  });
+}
+
+// Handle S3 list pagination
+async function handleS3ListPagination(interaction: any, bot: Bot): Promise<void> {
+  await interaction.deferUpdate();
+
+  try {
+    // Parse customId: "s3_list_next_TOKEN_PREFIX" or "s3_list_prev_TOKEN_PREFIX"
+    const parts = interaction.customId.split('_');
+    if (parts.length < 4) {
+      await interaction.editReply({
+        content: '❌ Invalid pagination button format.',
+        components: []
+      });
+      return;
+    }
+
+    const action = parts[2]; // 'next' or 'prev'
+    const token = parts[3] !== 'null' ? parts[3] : undefined;
+    const prefix = parts[4] !== 'null' ? parts[4] : undefined;
+
+    // Get S3 configuration from bot
+    const guildId = interaction.guildId!;
+    if (!bot.persistence) {
+      await interaction.editReply({
+        content: '❌ Database not available.',
+        components: []
+      });
+      return;
+    }
+
+    const config = await bot.persistence.getS3Config(guildId);
+    if (!config) {
+      await interaction.editReply({
+        content: '❌ S3 is not configured.',
+        components: []
+      });
+      return;
+    }
+
+    // Create uploader and fetch next page
+    const uploader = new S3Uploader({
+      region: config.region,
+      bucket: config.bucket,
+      accessKeyId: config.accessKeyId,
+      secretAccessKey: config.secretAccessKey,
+      endpoint: config.endpoint,
+      keyPrefix: config.keyPrefix,
+      publicUrlBase: config.publicUrlBase,
+      forcePathStyle: config.forcePathStyle
+    });
+    const result = await uploader.listObjects(prefix, token);
+
+    if (result.objects.length === 0) {
+      await interaction.editReply({
+        content: '📁 **No more files found**',
+        components: []
+      });
+      return;
+    }
+
+    // Build embed with file list
+    const embed = new MessageEmbed()
+      .setTitle(`📁 Files in ${config.bucket}`)
+      .setColor('#3498db')
+      .setTimestamp();
+
+    if (prefix) {
+      embed.setDescription(`Prefix: \`${prefix}\``);
+    }
+
+    const fileList = result.objects.map(obj => {
+      const sizeKB = (obj.size / 1024).toFixed(2);
+      const date = obj.lastModified.toISOString().split('T')[0];
+      return `\`${obj.key}\` - ${sizeKB} KB - ${date}`;
+    }).join('\n');
+
+    embed.addField(`Files (${result.objects.length})`, fileList.substring(0, 1024), false);
+
+    // Add pagination buttons
+    const components: MessageActionRow[] = [];
+    const buttons: MessageButton[] = [];
+
+    // Add "Next" button if there are more results
+    if (result.isTruncated && result.nextContinuationToken) {
+      buttons.push(
+        new MessageButton()
+          .setCustomId(`s3_list_next_${result.nextContinuationToken}_${prefix || 'null'}`)
+          .setLabel('Next →')
+          .setStyle('PRIMARY')
+      );
+      embed.setFooter({ text: 'More files available' });
+    } else {
+      embed.setFooter({ text: 'End of list' });
+    }
+
+    if (buttons.length > 0) {
+      const row = new MessageActionRow().addComponents(...buttons);
+      components.push(row);
+    }
+
+    await interaction.editReply({
+      embeds: [embed],
+      components
+    });
+
+  } catch (error) {
+    logger.error('Error handling S3 list pagination:', error);
+    await interaction.editReply({
+      content: `❌ Pagination failed: ${(error as Error).message}`,
+      components: []
+    });
   }
 }
