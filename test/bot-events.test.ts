@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, it, vi, expect } from 'vitest';
 import irc from 'irc-upd';
 import discord from 'discord.js';
-import Bot from '../lib/bot';
+import Bot, { TEST_HACK_CHANNEL } from '../lib/bot';
 import { logger } from '../lib/logger';
 import createDiscordStub from './stubs/discord-stub';
 import createWebhookStub from './stubs/webhook-stub';
@@ -27,6 +27,12 @@ describe('Bot Events', () => {
     bot.sendToIRC = vi.fn().mockResolvedValue(undefined);
     bot.sendToDiscord = vi.fn().mockResolvedValue(undefined);
     bot.sendExactToDiscord = vi.fn().mockResolvedValue(undefined);
+    // Mock status notifications to always return false (not sent) so legacy system is used
+    bot.statusNotifications.sendJoinNotification = vi.fn().mockResolvedValue(false);
+    bot.statusNotifications.sendLeaveNotification = vi.fn().mockResolvedValue(false);
+    bot.statusNotifications.sendQuitNotification = vi.fn().mockResolvedValue(false);
+    // Mock findDiscordChannel to return a valid text channel for join/part/quit tests
+    bot.findDiscordChannel = vi.fn().mockReturnValue({ [TEST_HACK_CHANNEL]: true });
     return bot;
   };
 
@@ -52,8 +58,8 @@ describe('Bot Events', () => {
     await new Promise(resolve => setImmediate(resolve));
   });
 
-  afterEach(function () {
-    if (bot.ircClient) {
+  afterEach(async function () {
+    if (bot?.ircClient) {
       bot.disconnect();
     }
     vi.restoreAllMocks();
@@ -93,8 +99,8 @@ describe('Bot Events', () => {
     expect(discordCall).toBeDefined();
     // @ts-expect-error mock call type
     expect(discordCall[1]).toEqual(discordError);
-    // Find the IRC error log call
-    const ircCall = mock.calls.find((call: any) => call[0] === 'Received error event from IRC');
+    // Find the IRC error log call (with emoji prefix)
+    const ircCall = mock.calls.find((call: any) => call[0] === '❌ Received error event from IRC');
     expect(ircCall).toBeDefined();
     // @ts-expect-error mock call type
     expect(ircCall[1]).toEqual(ircError);
@@ -162,6 +168,8 @@ describe('Bot Events', () => {
     await bot.connect();
     await waitForIRCClient(); // Wait for IRC client initialization
     await waitForIRCClient(); // Wait for IRC client initialization
+    // Clear any persisted channel users from previous tests
+    bot.channelUsers = {};
     bot.ircClient.emit('names', channel1, {
       [bot.nickname]: '',
       [oldNick]: '',
@@ -207,6 +215,8 @@ describe('Bot Events', () => {
     const bot = createBot({ ...config, ircStatusNotices: true });
     await bot.connect();
     await waitForIRCClient(); // Wait for IRC client initialization
+    // Clear any persisted channel users from previous tests
+    bot.channelUsers = {};
     expect(typeof bot.channelUsers).toBe('object');
     const channel = '#channel';
     // nick => '' means the user is not a special user
@@ -225,6 +235,8 @@ describe('Bot Events', () => {
     const bot = createBot({ ...config, ircStatusNotices: true });
     await bot.connect();
     await waitForIRCClient(); // Wait for IRC client initialization
+    // Clear any persisted channel users from previous tests
+    bot.channelUsers = {};
     const channel = '#channelName';
     const nicks = { [bot.nickname]: '' };
     bot.ircClient.emit('names', channel, nicks);
@@ -236,11 +248,16 @@ describe('Bot Events', () => {
     const bot = createBot({ ...config, ircStatusNotices: true });
     await bot.connect();
     await waitForIRCClient(); // Wait for IRC client initialization
+    await new Promise(resolve => setImmediate(resolve)); // Wait for event listeners to be attached
+    // Clear any persisted channel users from previous tests
+    bot.channelUsers = {};
     const channel = '#channel';
     bot.ircClient.emit('names', channel, { [bot.nickname]: '' });
     const nick = 'user';
     const text = `*${nick}* has joined the channel`;
     bot.ircClient.emit('join', channel, nick);
+    // Wait for async join handler to complete
+    await sleep(15);
     expect(bot.sendExactToDiscord).toHaveBeenCalledWith(channel, text);
     const channelNicks = new Set([bot.nickname, nick]);
     expect(bot.channelUsers).toEqual({ '#channel': channelNicks });
@@ -250,6 +267,8 @@ describe('Bot Events', () => {
     const bot = createBot({ ...config, ircStatusNotices: true });
     await bot.connect();
     await waitForIRCClient(); // Wait for IRC client initialization
+    // Clear any persisted channel users from previous tests
+    bot.channelUsers = {};
     const channel = '#channel';
     bot.ircClient.emit('names', channel, { [bot.nickname]: '' });
     const nick = bot.nickname;
@@ -273,6 +292,8 @@ describe('Bot Events', () => {
     const nick = bot.nickname;
     const text = `*${nick}* has joined the channel`;
     bot.ircClient.emit('join', channel, nick);
+    // Wait for async join handler to complete
+    await sleep(15);
     expect(bot.sendExactToDiscord).toHaveBeenCalledWith(channel, text);
   });
 
@@ -280,6 +301,8 @@ describe('Bot Events', () => {
     const bot = createBot({ ...config, ircStatusNotices: true });
     await bot.connect();
     await waitForIRCClient(); // Wait for IRC client initialization
+    // Clear any persisted channel users from previous tests
+    bot.channelUsers = {};
     const channel = '#channel';
     const nick = 'user';
     bot.ircClient.emit('names', channel, { [bot.nickname]: '', [nick]: '' });
@@ -288,6 +311,8 @@ describe('Bot Events', () => {
     const reason = 'Leaving';
     const text = `*${nick}* has left the channel (${reason})`;
     bot.ircClient.emit('part', channel, nick, reason);
+    // Wait for async part handler to complete
+    await sleep(15);
     expect(bot.sendExactToDiscord).toHaveBeenCalledWith(channel, text);
     // it should remove the nickname from the channelUsers list
     const channelNicks = new Set([bot.nickname]);
@@ -300,6 +325,8 @@ describe('Bot Events', () => {
     await waitForIRCClient(); // Wait for IRC client initialization
     // Wait for setImmediate callback that initializes IRC client
     await new Promise(resolve => setImmediate(resolve));
+    // Clear any persisted channel users from previous tests
+    bot.channelUsers = {};
     const channel = '#channel';
     bot.ircClient.emit('names', channel, { [bot.nickname]: '', user: '' });
     const originalNicks = new Set([bot.nickname, 'user']);
@@ -317,6 +344,8 @@ describe('Bot Events', () => {
     await waitForIRCClient(); // Wait for IRC client initialization
     // Wait for setImmediate callback that initializes IRC client
     await new Promise(resolve => setImmediate(resolve));
+    // Clear any persisted channel users from previous tests
+    bot.channelUsers = {};
     const channel1 = '#channel1';
     const channel2 = '#channel2';
     const channel3 = '#channel3';
