@@ -388,6 +388,7 @@ Comprehensive S3 file storage management with per-guild configuration
   - Returns public URL for sharing
   - Supports custom folder prefixes
   - Validates file size against configured limits
+  - Rate limited: 5 uploads per 10 minutes per user
 - `list` - Browse uploaded files with pagination support
   - Filter by folder prefix
   - Shows file sizes and last modified timestamps
@@ -412,6 +413,7 @@ Comprehensive S3 file storage management with per-guild configuration
   - Optional message/caption support
   - Target channel selection (defaults to current channel)
   - Optional folder organization
+  - Rate limited: 5 uploads per 10 minutes per user
 
 **Status** (`/s3 status`)
 - Display comprehensive S3 system status and configuration summary
