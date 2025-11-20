@@ -1091,129 +1091,242 @@ export const recoveryCommand: SlashCommand = {
   }
 };
 
+// S3 Config command handlers
+async function handleS3ConfigCommands(interaction: CommandInteraction, bot: Bot, subcommand: string): Promise<void> {
+  const guildId = interaction.guildId!;
+
+  switch (subcommand) {
+    case 'set': {
+      await interaction.deferReply({ ephemeral: true });
+      if (!process.env.S3_CONFIG_ENCRYPTION_KEY) {
+        await interaction.editReply({ content: '❌ **Config Error**\n\nS3_CONFIG_ENCRYPTION_KEY not set.\nGenerate: `node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"`' });
+        return;
+      }
+
+      const bucket = interaction.options.getString('bucket', true);
+      const region = interaction.options.getString('region', true);
+      const accessKeyId = interaction.options.getString('access_key_id', true);
+      const secretAccessKey = interaction.options.getString('secret_access_key', true);
+      const endpoint = interaction.options.getString('endpoint') || undefined;
+      const keyPrefix = interaction.options.getString('key_prefix') || undefined;
+      const maxFileSizeMb = interaction.options.getInteger('max_file_size_mb') || 25;
+
+      if (maxFileSizeMb < 1 || maxFileSizeMb > 100) {
+        await interaction.editReply({ content: '❌ Max file size must be 1-100 MB.' });
+        return;
+      }
+
+      try {
+        const s3Config: S3Config = { guildId, bucket, region, endpoint, accessKeyId, secretAccessKey, keyPrefix, publicUrlBase: undefined, forcePathStyle: !!endpoint, maxFileSizeMb, allowedRoles: undefined, createdAt: Date.now(), updatedAt: Date.now() };
+        if (!bot.persistence) throw new Error('Database not available');
+        await bot.persistence.saveS3Config(s3Config);
+
+        const testUploader = new S3Uploader({ region, bucket, accessKeyId, secretAccessKey, endpoint, keyPrefix, forcePathStyle: s3Config.forcePathStyle });
+        const testResult = await testUploader.testConnection();
+
+        if (testResult.success) {
+          await interaction.editReply({ content: `✅ **S3 Configured**\n\nBucket: \`${bucket}\`\nRegion: \`${region}\`\nTest: ✅\n\nUse \`/s3 files upload\` to upload files.` });
+        } else {
+          await interaction.editReply({ content: `⚠️ **S3 Saved (Test Failed)**\n\nBucket: \`${bucket}\`\nTest: ❌ ${testResult.error}\n\nVerify credentials.` });
+        }
+      } catch (error) {
+        await interaction.editReply({ content: `❌ Save failed: ${(error as Error).message}` });
+      }
+      break;
+    }
+
+    case 'view': {
+      await interaction.deferReply({ ephemeral: true });
+      if (!bot.persistence) { await interaction.editReply({ content: '❌ Database not available.' }); return; }
+      const config = await bot.persistence.getS3Config(guildId);
+      if (!config) { await interaction.editReply({ content: '❌ **Not Configured**\n\nUse `/s3 config set`.' }); return; }
+
+      const embed = new MessageEmbed().setTitle('🔧 S3 Configuration').setColor('#3498db')
+        .addField('Bucket', config.bucket, true).addField('Region', config.region, true).addField('Max Size', `${config.maxFileSizeMb} MB`, true).setTimestamp();
+      if (config.endpoint) embed.addField('Endpoint', config.endpoint, false);
+      if (config.keyPrefix) embed.addField('Prefix', config.keyPrefix, true);
+      embed.addField('Access Key', `${config.accessKeyId.substring(0, 8)}...`, true).addField('Secret', '••••••••', true);
+      await interaction.editReply({ embeds: [embed] });
+      break;
+    }
+
+    case 'test': {
+      await interaction.deferReply({ ephemeral: true });
+      if (!bot.persistence) { await interaction.editReply({ content: '❌ Database not available.' }); return; }
+      const config = await bot.persistence.getS3Config(guildId);
+      if (!config) { await interaction.editReply({ content: '❌ Use `/s3 config set` first.' }); return; }
+
+      const uploader = new S3Uploader({ region: config.region, bucket: config.bucket, accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey, endpoint: config.endpoint, keyPrefix: config.keyPrefix, forcePathStyle: config.forcePathStyle });
+      const result = await uploader.testConnection();
+      await interaction.editReply({ content: result.success ? '✅ **Test Successful**' : `❌ **Test Failed**\n\n${result.error}` });
+      break;
+    }
+
+    case 'remove': {
+      await interaction.deferReply({ ephemeral: true });
+      if (!bot.persistence) { await interaction.editReply({ content: '❌ Database not available.' }); return; }
+      await bot.persistence.deleteS3Config(guildId);
+      await interaction.editReply({ content: '✅ **S3 Configuration Removed**' });
+      break;
+    }
+  }
+}
+
+// S3 Files command handlers
+async function handleS3FilesCommands(interaction: CommandInteraction, bot: Bot, subcommand: string): Promise<void> {
+  const guildId = interaction.guildId!;
+  if (!bot.persistence) { await interaction.reply({ content: '❌ Database not available.', ephemeral: true }); return; }
+  const config = await bot.persistence.getS3Config(guildId);
+  if (!config) { await interaction.reply({ content: '❌ **Not Configured**\n\nUse `/s3 config set` first.', ephemeral: true }); return; }
+
+  const uploader = new S3Uploader({ region: config.region, bucket: config.bucket, accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey, endpoint: config.endpoint, keyPrefix: config.keyPrefix, publicUrlBase: config.publicUrlBase, forcePathStyle: config.forcePathStyle });
+
+  switch (subcommand) {
+    case 'upload': {
+      await interaction.deferReply({ ephemeral: true });
+      const attachment = interaction.options.getAttachment('file', true);
+      const folder = interaction.options.getString('folder') || undefined;
+
+      if (attachment.size > config.maxFileSizeMb * 1024 * 1024) {
+        await interaction.editReply({ content: `❌ **Too Large**\n\nSize: ${(attachment.size / 1024 / 1024).toFixed(2)} MB\nMax: ${config.maxFileSizeMb} MB` });
+        return;
+      }
+
+      try {
+        const response = await fetch(attachment.url);
+        const buffer = Buffer.from(await response.arrayBuffer());
+        const filename = attachment.name || 'file';
+        const customFilename = folder ? `${folder}/${filename}` : filename;
+        const result = await uploader.uploadFile(buffer, filename, customFilename || undefined);
+
+        if (result.success) {
+          const embed = new MessageEmbed().setTitle('✅ Upload Success').setColor('#00ff00')
+            .addField('File', filename, true).addField('Size', `${(attachment.size / 1024).toFixed(2)} KB`, true)
+            .addField('Key', result.key!, false).addField('URL', result.url!, false).setTimestamp();
+          await interaction.editReply({ embeds: [embed] });
+        } else {
+          await interaction.editReply({ content: `❌ Upload failed: ${result.error}` });
+        }
+      } catch (error) {
+        await interaction.editReply({ content: `❌ Error: ${(error as Error).message}` });
+      }
+      break;
+    }
+
+    case 'list': {
+      await interaction.deferReply({ ephemeral: true });
+      const prefix = interaction.options.getString('prefix') || undefined;
+
+      try {
+        const result = await uploader.listObjects(prefix);
+        if (result.objects.length === 0) {
+          await interaction.editReply({ content: '📁 **No files found**' });
+          return;
+        }
+
+        const embed = new MessageEmbed().setTitle(`📁 Files in ${config.bucket}`).setColor('#3498db').setTimestamp();
+        if (prefix) embed.setDescription(`Prefix: \`${prefix}\``);
+
+        const fileList = result.objects.map(obj => {
+          const sizeKB = (obj.size / 1024).toFixed(2);
+          const date = obj.lastModified.toISOString().split('T')[0];
+          return `\`${obj.key}\` - ${sizeKB} KB - ${date}`;
+        }).join('\n');
+
+        embed.addField(`Files (${result.objects.length})`, fileList.substring(0, 1024), false);
+        if (result.isTruncated) embed.setFooter({ text: 'More files available. Use prefix to filter.' });
+        await interaction.editReply({ embeds: [embed] });
+      } catch (error) {
+        await interaction.editReply({ content: `❌ List failed: ${(error as Error).message}` });
+      }
+      break;
+    }
+  }
+}
+
+// S3 Status command handler
+async function handleS3StatusCommand(interaction: CommandInteraction, bot: Bot): Promise<void> {
+  await interaction.deferReply({ ephemeral: true });
+  const embed = new MessageEmbed().setTitle('📊 S3 Storage Status').setColor('#3498db').setTimestamp();
+
+  if (!bot.persistence) {
+    embed.setDescription('❌ Database not available.');
+    await interaction.editReply({ embeds: [embed] });
+    return;
+  }
+
+  const config = await bot.persistence.getS3Config(interaction.guildId!);
+  if (config) {
+    embed.setColor('#00ff00').addField('Status', '✅ Configured', true).addField('Bucket', config.bucket, true)
+      .addField('Region', config.region, true).addField('Max Size', `${config.maxFileSizeMb} MB`, true);
+    if (config.keyPrefix) embed.addField('Prefix', config.keyPrefix, true);
+    embed.setDescription('Use `/s3 files upload` to upload, `/s3 files list` to view files.');
+  } else {
+    embed.setColor('#ff9900').addField('Status', '❌ Not Configured', true)
+      .setDescription('Use `/s3 config set` to configure S3 storage.');
+  }
+  await interaction.editReply({ embeds: [embed] });
+}
+
 // S3 management command
 export const s3Command: SlashCommand = {
   data: {
-    name: 'irc-s3',
-    description: 'Manage S3 file upload settings',
+    name: 's3',
+    description: 'Manage S3 file storage and uploads',
     defaultMemberPermissions: Permissions.FLAGS.ADMINISTRATOR,
     options: [
-      {
-        type: 'SUB_COMMAND',
-        name: 'status',
-        description: 'Show S3 upload configuration and status'
-      },
-      {
-        type: 'SUB_COMMAND',
-        name: 'test',
-        description: 'Test S3 connection and upload functionality'
-      },
-      {
-        type: 'SUB_COMMAND',
-        name: 'stats',
-        description: 'Show S3 upload statistics'
-      }
+      { type: 'SUB_COMMAND_GROUP', name: 'config', description: 'Manage S3 configuration', options: [
+        { type: 'SUB_COMMAND', name: 'set', description: 'Configure S3 credentials', options: [
+          { type: 'STRING', name: 'bucket', description: 'S3 bucket name', required: true },
+          { type: 'STRING', name: 'region', description: 'AWS region (e.g., us-east-1)', required: true },
+          { type: 'STRING', name: 'access_key_id', description: 'AWS Access Key ID', required: true },
+          { type: 'STRING', name: 'secret_access_key', description: 'AWS Secret (encrypted)', required: true },
+          { type: 'STRING', name: 'endpoint', description: 'S3-compatible endpoint', required: false },
+          { type: 'STRING', name: 'key_prefix', description: 'Folder prefix', required: false },
+          { type: 'INTEGER', name: 'max_file_size_mb', description: 'Max MB (1-100, default: 25)', required: false }
+        ]},
+        { type: 'SUB_COMMAND', name: 'view', description: 'View configuration' },
+        { type: 'SUB_COMMAND', name: 'test', description: 'Test connection' },
+        { type: 'SUB_COMMAND', name: 'remove', description: 'Delete configuration' }
+      ]},
+      { type: 'SUB_COMMAND_GROUP', name: 'files', description: 'File operations', options: [
+        { type: 'SUB_COMMAND', name: 'upload', description: 'Upload file to S3', options: [
+          { type: 'ATTACHMENT', name: 'file', description: 'File to upload', required: true },
+          { type: 'STRING', name: 'folder', description: 'Optional folder', required: false }
+        ]},
+        { type: 'SUB_COMMAND', name: 'list', description: 'List files', options: [
+          { type: 'STRING', name: 'prefix', description: 'Filter by prefix', required: false }
+        ]}
+      ]},
+      { type: 'SUB_COMMAND', name: 'status', description: 'Show status' }
     ]
   },
+
   async execute(interaction: CommandInteraction, bot: Bot) {
-    // Admin permission check
     if (!interaction.memberPermissions?.has(Permissions.FLAGS.ADMINISTRATOR)) {
-      await interaction.reply({ 
-        content: '❌ You need Administrator permissions to use this command.', 
-        ephemeral: true 
-      });
+      await interaction.reply({ content: '❌ Administrator permissions required.', ephemeral: true });
+      return;
+    }
+    if (!interaction.guildId) {
+      await interaction.reply({ content: '❌ Server-only command.', ephemeral: true });
       return;
     }
 
     try {
+      const subcommandGroup = interaction.options.getSubcommandGroup(false);
       const subcommand = interaction.options.getSubcommand();
-      
-      switch (subcommand) {
-        case 'status': {
-          const embed = new MessageEmbed()
-            .setTitle('📁 S3 Upload Configuration')
-            .setTimestamp();
 
-          if (bot.s3Uploader) {
-            embed.setColor('#00ff00')
-              .addField('Status', '✅ Enabled and Active', true)
-              .addField('Upload Method', 'S3-compatible bucket', true)
-              .setDescription('S3 uploads are configured and active. Discord attachments will be uploaded to your S3 bucket and shared via S3 URLs instead of Discord CDN links.');
-          } else {
-            embed.setColor('#ff9900')
-              .addField('Status', '❌ Disabled', true)
-              .addField('Reason', 'Configuration missing or invalid', true)
-              .setDescription('S3 uploads are not configured. Add S3 configuration via environment variables or config file to enable this feature.')
-              .addField('Required Environment Variables', 
-                '`S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`', false)
-              .addField('Optional Environment Variables', 
-                '`S3_ENDPOINT` (for S3-compatible services)\n`S3_PUBLIC_URL_BASE` (custom CDN URL)\n`S3_KEY_PREFIX` (file path prefix)\n`S3_FORCE_PATH_STYLE=true` (for some S3-compatible services)', false);
-          }
-
-          await interaction.reply({ embeds: [embed], ephemeral: true });
-          break;
-        }
-
-        case 'test': {
-          if (!bot.s3Uploader) {
-            await interaction.reply({ 
-              content: '❌ **S3 Upload Test Failed**\n\nS3 uploader is not configured. Please check your S3 configuration and restart the bot.',
-              ephemeral: true 
-            });
-            return;
-          }
-
-          await interaction.deferReply({ ephemeral: true });
-
-          try {
-            const testResult = await bot.s3Uploader.testConnection();
-            
-            if (testResult.success) {
-              await interaction.editReply({ 
-                content: '✅ **S3 Upload Test Successful**\n\nS3 connection is working properly. Test file was uploaded successfully.' 
-              });
-            } else {
-              await interaction.editReply({ 
-                content: `❌ **S3 Upload Test Failed**\n\nError: ${testResult.error}\n\nPlease check your S3 configuration and credentials.` 
-              });
-            }
-          } catch (error) {
-            await interaction.editReply({ 
-              content: `❌ **S3 Upload Test Failed**\n\nUnexpected error: ${(error as Error).message}` 
-            });
-          }
-          break;
-        }
-
-        case 'stats': {
-          // Get S3-related metrics from the metrics collector
-          const detailed = bot.metrics.getDetailedMetrics();
-          
-          const embed = new MessageEmbed()
-            .setTitle('📊 S3 Upload Statistics')
-            .setColor('#3498db')
-            .addField('Total Attachments Processed', `${detailed.attachmentsSent}`, true)
-            .setTimestamp();
-
-          if (bot.s3Uploader) {
-            embed.addField('S3 Status', '✅ Active', true)
-              .setDescription('S3 uploads are active. Attachment statistics include both S3 and fallback Discord URLs.');
-          } else {
-            embed.addField('S3 Status', '❌ Disabled', true)
-              .setDescription('S3 uploads are disabled. All attachments use Discord CDN URLs.');
-          }
-
-          await interaction.reply({ embeds: [embed], ephemeral: true });
-          break;
-        }
-      }
-      
+      if (subcommandGroup === 'config') await handleS3ConfigCommands(interaction, bot, subcommand);
+      else if (subcommandGroup === 'files') await handleS3FilesCommands(interaction, bot, subcommand);
+      else if (subcommand === 'status') await handleS3StatusCommand(interaction, bot);
     } catch (error) {
-      logger.error('Error in S3 command:', error);
-      await interaction.reply({ 
-        content: '❌ Failed to execute S3 command.', 
-        ephemeral: true 
-      });
+      logger.error('S3 command error:', error);
+      try {
+        const method = interaction.deferred || interaction.replied ? 'editReply' : 'reply';
+        await interaction[method]({ content: `❌ Error: ${(error as Error).message}`, ephemeral: true });
+      } catch (replyError) {
+        logger.error('Failed to send error:', replyError);
+      }
     }
   }
 };

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { slashCommands, statusCommand, usersCommand } from '../lib/slash-commands';
+import { slashCommands, statusCommand, usersCommand, s3Command } from '../lib/slash-commands';
 
 describe('Slash Commands', () => {
   it('should export correct number of commands', () => {
@@ -17,6 +17,25 @@ describe('Slash Commands', () => {
     expect((usersCommand.data as any).options).toBeDefined();
     expect((usersCommand.data as any).options).toHaveLength(1);
     expect((usersCommand.data as any).options![0].name).toBe('channel');
+  });
+
+  it('should have s3 command with subcommand groups', () => {
+    expect(s3Command.data.name).toBe('s3');
+    expect((s3Command.data as any).description).toBe('Manage S3 file storage and uploads');
+    expect((s3Command.data as any).options).toBeDefined();
+    expect((s3Command.data as any).options).toHaveLength(3); // config group, files group, status
+
+    // Check config subcommand group
+    const configGroup = (s3Command.data as any).options.find((opt: any) => opt.name === 'config');
+    expect(configGroup).toBeDefined();
+    expect(configGroup.type).toBe('SUB_COMMAND_GROUP');
+    expect(configGroup.options).toHaveLength(4); // set, view, test, remove
+
+    // Check files subcommand group
+    const filesGroup = (s3Command.data as any).options.find((opt: any) => opt.name === 'files');
+    expect(filesGroup).toBeDefined();
+    expect(filesGroup.type).toBe('SUB_COMMAND_GROUP');
+    expect(filesGroup.options).toHaveLength(2); // upload, list
   });
 
   it('should have all commands with admin permissions', () => {
