@@ -110,7 +110,7 @@ export class S3Uploader {
       };
 
       const command = new PutObjectCommand(uploadParams);
-      const result = await this.client.send(command);
+      const _result = await this.client.send(command);
 
       // Generate public URL
       const url = this.generatePublicUrl(key);

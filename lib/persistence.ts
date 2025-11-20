@@ -491,7 +491,7 @@ export class PersistenceService {
             });
           } catch (decryptError) {
             logger.error('Failed to decrypt S3 config:', decryptError);
-            reject(decryptError);
+            reject(decryptError instanceof Error ? decryptError : new Error(String(decryptError)));
           }
         }
       });

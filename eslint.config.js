@@ -51,4 +51,11 @@ export default [
     files: ['test/**/*.ts'],
     ...pluginVitest.configs.recommended,
   },
+  {
+    // Allow require() in CommonJS files and runtime conditional loaders
+    files: ['lib/**/*.js', 'lib/persistence-factory.ts'],
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+    },
+  },
 ];

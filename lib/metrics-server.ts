@@ -1,6 +1,7 @@
 import http from 'http';
 import { logger } from './logger';
 import { MetricsCollector } from './metrics';
+import packageJson from '../package.json';
 
 export class MetricsServer {
   private server: http.Server | null = null;
@@ -86,7 +87,7 @@ export class MetricsServer {
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       memory: process.memoryUsage(),
-      version: require('../../package.json').version
+      version: packageJson.version
     };
 
     res.writeHead(200, { 'Content-Type': 'application/json' });

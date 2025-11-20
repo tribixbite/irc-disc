@@ -126,7 +126,7 @@ export class ResponseAwareWhoisQueue {
         // Failed to send WHOIS - cleanup and reject
         clearTimeout(timer);
         this.ircClient.removeListener('rpl_endofwhois', listener);
-        reject(error);
+        reject(error instanceof Error ? error : new Error(String(error)));
       }
     });
   }

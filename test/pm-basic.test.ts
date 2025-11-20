@@ -75,7 +75,8 @@ describe('Private Message Configuration', () => {
     bot.pmThreads.set('oldnick', 'thread123');
 
     // Mock the persistence layer
-    bot.persistence.updatePMThreadNick = vi.fn().mockResolvedValue(undefined);
+    const mockUpdatePMThreadNick = vi.fn().mockResolvedValue(undefined);
+    bot.persistence.updatePMThreadNick = mockUpdatePMThreadNick;
 
     // Mock the PM channel finding to return null (no actual channel)
     bot.findPmChannel = async () => null;
@@ -88,6 +89,6 @@ describe('Private Message Configuration', () => {
     expect(bot.pmThreads.get('newnick')).toBe('thread123');
 
     // Verify persistence was called
-    expect(bot.persistence.updatePMThreadNick).toHaveBeenCalledWith('oldnick', 'newnick');
+    expect(mockUpdatePMThreadNick).toHaveBeenCalledWith('oldnick', 'newnick');
   });
 });

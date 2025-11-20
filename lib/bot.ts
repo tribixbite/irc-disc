@@ -713,7 +713,7 @@ class Bot {
 
         this.ircClient.once('error', (error) => {
           clearTimeout(timeout);
-          reject(error);
+          reject(error instanceof Error ? error : new Error(String(error)));
         });
 
         // Explicitly connect with retryCount: 0 (no auto-retry)

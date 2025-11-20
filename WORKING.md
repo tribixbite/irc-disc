@@ -2,6 +2,49 @@
 
 ## 🚀 Current Work (2025-11-20)
 
+### ✅ Quick-Win Linting Fixes (Round 7)
+**Date:** 2025-11-20
+**Files:** `lib/bot.ts`, `lib/irc/response-aware-whois-queue.ts`, `lib/persistence.ts`, `lib/slash-commands.ts`, `test/pm-basic.test.ts`, `lib/metrics-server.ts`, `eslint.config.js`, `lib/s3-uploader.ts`, `test/connection-monitoring.test.ts`
+
+**Improvements:**
+1. **Converted require() to import** (1 fixed + 4 exceptions)
+   - metrics-server.ts: Changed `require('../../package.json').version` to ES module import
+   - Added ESLint exception for CommonJS files (lib/**/*.js) and runtime conditional loader (persistence-factory.ts)
+   - These files need require() for dynamic module loading based on Bun vs Node.js runtime
+
+2. **Fixed unused variable errors** (3 fixed)
+   - s3-uploader.ts:113: `result` → `_result` (S3 upload response not used)
+   - slash-commands.ts:166: Removed unused `stats` variable
+   - test/connection-monitoring.test.ts:533: `statsAfterDelay` → `_statsAfterDelay`
+
+3. **Fixed promise rejection errors** (3 fixed)
+   - bot.ts:716: Ensured IRC error is Error instance before rejecting
+   - response-aware-whois-queue.ts:129: Wrapped error in Error instance
+   - persistence.ts:494: Wrapped decryptError in Error instance
+   - Pattern: `reject(error instanceof Error ? error : new Error(String(error)))`
+
+4. **Fixed template expression type error** (1 fixed)
+   - slash-commands.ts:2176: Added `String(value)` for unknown type in template literal
+
+5. **Fixed unbound method error** (1 fixed)
+   - pm-basic.test.ts:91: Stored mock in variable to avoid unbound method reference
+
+**Testing:**
+- ✅ All 233 tests passing
+- ✅ Build successful
+- ✅ No regressions
+
+**Results:**
+- Reduced linting errors from 150 to 137 (13 fewer problems, 8.7% reduction)
+- Total session reduction: 41 problems (23% reduction from 178 start)
+- Fixed 5 require() imports (1 converted, 4 properly excepted)
+- Fixed 3 unused variables
+- Fixed 3 promise rejection errors
+- Fixed 1 template expression error
+- Fixed 1 unbound method error
+
+**Status:** COMPLETED ✅
+
 ### ✅ ESLint Configuration and Unused Imports (Round 6)
 **Date:** 2025-11-20
 **Files:** `eslint.config.js`, `test/message-sync.test.ts`, `test/metrics.test.ts`
@@ -1532,17 +1575,19 @@ Added `this.recoveryManager.recordSuccess()` calls at 5 locations:
 - **Round 4**: Removed 10 dead skipped tests (~650 lines of dead code)
 - **Round 5**: Fixed 2 remaining skipped tests (100% test suite enabled)
 - **Round 6**: ESLint config + removed unused imports (9 issues)
-- **Total Fixed**: 40 linting issues + 10 dead tests + 2 skipped tests
-- **Linting Progress**: 178 → 150 problems (15.7% reduction, 28 fewer errors)
+- **Round 7**: Quick-win fixes: require imports, unused vars, promise rejections (13 issues)
+- **Total Fixed**: 53 linting issues + 10 dead tests + 2 skipped tests
+- **Linting Progress**: 178 → 137 problems (23% reduction, 41 fewer errors)
 - **Test Progress**: 243 tests (12 skipped) → 233 tests (0 skipped, all passing)
-- **Commits**: 6 commits (fe7efaa, 1e5cb23, 24463ee, 3a068c3, 48678a8, 5322022 + pending)
+- **Commits**: 7 commits (fe7efaa, 1e5cb23, 24463ee, 3a068c3, 48678a8, 5322022, 86072c1 + pending)
 - **Tests**: All 233 tests passing, 100% enabled
 
-**Remaining Linting Issues (158 total):**
+**Remaining Linting Issues (137 total):**
 - 83 `no-explicit-any` - Would require comprehensive type definitions
-- 17 `require-await` - Intentional for API consistency
+- 27 `no-floating-promises` - Promises not being awaited or caught
+- 17 `require-await` - Async functions without await (intentional for API consistency)
+- 5 `no-misused-promises` - Promises used incorrectly
 - 3 Parsing errors - Expected for .js files not in tsconfig
-- 6 `no-require-imports` - Intentional for Bun/Node dynamic loading
-- ~50 Other (no-misused-promises, prefer-promise-reject-errors, etc.)
+- 2 Other minor issues
 
 **Session Complete:** All practical quick-win improvements finished successfully

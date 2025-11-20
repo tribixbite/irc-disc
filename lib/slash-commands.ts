@@ -163,7 +163,6 @@ export const usersCommand: SlashCommand = {
           // Show enhanced channel info from IRC User Manager
           const channelInfo = bot.ircUserManager.getChannelInfo(fullChannelName);
           if (channelInfo) {
-            const stats = bot.ircUserManager.getStats();
             const operatorCount = Array.from(channelInfo.users.values()).filter(u => u.isOperator).length;
             const voicedCount = Array.from(channelInfo.users.values()).filter(u => u.isVoiced && !u.isOperator).length;
             
@@ -2174,7 +2173,7 @@ export const ircUserInfoCommand: SlashCommand = {
 
           // Show search criteria
           const criteriaText = Object.entries(searchCriteria)
-            .map(([key, value]) => `${key}: ${value}`)
+            .map(([key, value]) => `${key}: ${String(value)}`)
             .join(', ');
           embed.setDescription(`**Search criteria:** ${criteriaText}\n**Found ${results.length} user(s)**`);
 

@@ -530,7 +530,7 @@ describe('IRC Connection Monitoring', () => {
       // Simulate time passing without activity
       await sleep(100);
 
-      const statsAfterDelay = bot.getIRCStats();
+      const _statsAfterDelay = bot.getIRCStats();
       const timeSinceActivity = Date.now() - activityTime;
 
       // Should be able to detect stale connection
