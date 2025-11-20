@@ -1,25 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MessageSynchronizer } from '../lib/message-sync';
+import type Bot from '../lib/bot';
 
 // Mock bot for testing
-const createMockBot = () => {
+const createMockBot = (): Partial<Bot> => {
   return {
     ircClient: {
       say: vi.fn(),
       readyState: 'open'
-    },
+    } as Bot['ircClient'],
     parseText: vi.fn().mockReturnValue('test message'),
-    persistence: null
-  } as any;
+    persistence: undefined
+  };
 };
 
 describe('MessageSynchronizer', () => {
   let messageSync: MessageSynchronizer;
-  let mockBot: any;
+  let mockBot: Partial<Bot>;
 
   beforeEach(() => {
     mockBot = createMockBot();
-    messageSync = new MessageSynchronizer(mockBot);
+    messageSync = new MessageSynchronizer(mockBot as Bot);
   });
 
   it('should record messages correctly', () => {

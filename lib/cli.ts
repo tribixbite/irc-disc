@@ -53,8 +53,8 @@ async function readJSConfig(filePath: string): Promise<unknown> {
  * - S3_SECRET_ACCESS_KEY: S3 secret key
  * - S3_REGION: S3 region
  */
-function applyEnvironmentOverrides(config: any): any {
-  const overridden = { ...config };
+function applyEnvironmentOverrides(config: unknown): unknown {
+  const overridden = { ...(config as Record<string, unknown>) };
 
   // Discord token
   if (process.env.DISCORD_TOKEN) {
@@ -70,13 +70,14 @@ function applyEnvironmentOverrides(config: any): any {
 
   // SASL authentication
   if (process.env.IRC_SASL_USERNAME || process.env.IRC_SASL_PASSWORD) {
-    overridden.sasl = overridden.sasl || {};
+    overridden.sasl = (overridden.sasl as Record<string, unknown> | undefined) || {};
+    const sasl = overridden.sasl as Record<string, unknown>;
     if (process.env.IRC_SASL_USERNAME) {
-      overridden.sasl.username = process.env.IRC_SASL_USERNAME;
+      sasl.username = process.env.IRC_SASL_USERNAME;
       logger.info('Using SASL username from IRC_SASL_USERNAME environment variable');
     }
     if (process.env.IRC_SASL_PASSWORD) {
-      overridden.sasl.password = process.env.IRC_SASL_PASSWORD;
+      sasl.password = process.env.IRC_SASL_PASSWORD;
       logger.info('Using SASL password from IRC_SASL_PASSWORD environment variable');
     }
   }
@@ -85,26 +86,27 @@ function applyEnvironmentOverrides(config: any): any {
   if (process.env.S3_ENDPOINT || process.env.S3_BUCKET ||
       process.env.S3_ACCESS_KEY_ID || process.env.S3_SECRET_ACCESS_KEY ||
       process.env.S3_REGION) {
-    overridden.s3 = overridden.s3 || {};
+    overridden.s3 = (overridden.s3 as Record<string, unknown> | undefined) || {};
+    const s3 = overridden.s3 as Record<string, unknown>;
 
     if (process.env.S3_ENDPOINT) {
-      overridden.s3.endpoint = process.env.S3_ENDPOINT;
+      s3.endpoint = process.env.S3_ENDPOINT;
       logger.info('Using S3 endpoint from S3_ENDPOINT environment variable');
     }
     if (process.env.S3_BUCKET) {
-      overridden.s3.bucket = process.env.S3_BUCKET;
+      s3.bucket = process.env.S3_BUCKET;
       logger.info('Using S3 bucket from S3_BUCKET environment variable');
     }
     if (process.env.S3_ACCESS_KEY_ID) {
-      overridden.s3.accessKeyId = process.env.S3_ACCESS_KEY_ID;
+      s3.accessKeyId = process.env.S3_ACCESS_KEY_ID;
       logger.info('Using S3 access key from S3_ACCESS_KEY_ID environment variable');
     }
     if (process.env.S3_SECRET_ACCESS_KEY) {
-      overridden.s3.secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
+      s3.secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
       logger.info('Using S3 secret key from S3_SECRET_ACCESS_KEY environment variable');
     }
     if (process.env.S3_REGION) {
-      overridden.s3.region = process.env.S3_REGION;
+      s3.region = process.env.S3_REGION;
       logger.info('Using S3 region from S3_REGION environment variable');
     }
   }
@@ -210,12 +212,9 @@ export async function run(): Promise<void> {
   } catch (error) {
     if (error instanceof ZodError) {
       console.error('\n❌ Configuration validation failed:\n');
-      const zodError = error as any; // Type workaround for Zod v4
-      if (zodError.issues) {
-        zodError.issues.forEach((err: any) => {
-          console.error(`  • ${err.path.join('.')}: ${err.message}`);
-        });
-      }
+      error.issues.forEach((err) => {
+        console.error(`  • ${err.path.join('.')}: ${err.message}`);
+      });
       console.error('\nPlease fix your configuration and try again.');
       console.error('See https://github.com/tribixbite/irc-disc#configuration for details.\n');
     } else {

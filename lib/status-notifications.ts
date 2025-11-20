@@ -398,28 +398,29 @@ export class StatusNotificationManager {
   /**
    * Load configuration from environment variables or config
    */
-  static loadConfig(options: any = {}): Partial<StatusNotificationConfig> {
+  static loadConfig(options: Record<string, unknown> = {}): Partial<StatusNotificationConfig> {
+    const statusNotifications = options.statusNotifications as Record<string, unknown> | undefined;
     return {
-      enabled: options.statusNotifications?.enabled ?? (process.env.STATUS_NOTIFICATIONS_ENABLED !== 'false'),
-      useDedicatedChannels: options.statusNotifications?.useDedicatedChannels ?? (process.env.STATUS_NOTIFICATIONS_USE_DEDICATED_CHANNELS !== 'false'),
-      joinLeaveChannelId: options.statusNotifications?.joinLeaveChannelId || process.env.STATUS_NOTIFICATIONS_JOIN_LEAVE_CHANNEL_ID,
-      timeoutChannelId: options.statusNotifications?.timeoutChannelId || process.env.STATUS_NOTIFICATIONS_TIMEOUT_CHANNEL_ID,
-      fallbackToMainChannel: options.statusNotifications?.fallbackToMainChannel ?? (process.env.STATUS_NOTIFICATIONS_FALLBACK_TO_MAIN !== 'false'),
-      includeJoins: options.statusNotifications?.includeJoins ?? (process.env.STATUS_NOTIFICATIONS_INCLUDE_JOINS !== 'false'),
-      includeLeaves: options.statusNotifications?.includeLeaves ?? (process.env.STATUS_NOTIFICATIONS_INCLUDE_LEAVES !== 'false'),
-      includeQuits: options.statusNotifications?.includeQuits ?? (process.env.STATUS_NOTIFICATIONS_INCLUDE_QUITS !== 'false'),
-      includeKicks: options.statusNotifications?.includeKicks ?? (process.env.STATUS_NOTIFICATIONS_INCLUDE_KICKS !== 'false'),
-      includeTimeouts: options.statusNotifications?.includeTimeouts ?? (process.env.STATUS_NOTIFICATIONS_INCLUDE_TIMEOUTS !== 'false'),
-      includeBotEvents: options.statusNotifications?.includeBotEvents ?? (process.env.STATUS_NOTIFICATIONS_INCLUDE_BOT_EVENTS === 'true'),
-      includeIRCConnectionEvents: options.statusNotifications?.includeIRCConnectionEvents ?? (process.env.STATUS_NOTIFICATIONS_INCLUDE_IRC_CONNECTION !== 'false'),
-      joinMessage: options.statusNotifications?.joinMessage || process.env.STATUS_NOTIFICATIONS_JOIN_MESSAGE,
-      leaveMessage: options.statusNotifications?.leaveMessage || process.env.STATUS_NOTIFICATIONS_LEAVE_MESSAGE,
-      quitMessage: options.statusNotifications?.quitMessage || process.env.STATUS_NOTIFICATIONS_QUIT_MESSAGE,
-      kickMessage: options.statusNotifications?.kickMessage || process.env.STATUS_NOTIFICATIONS_KICK_MESSAGE,
-      timeoutMessage: options.statusNotifications?.timeoutMessage || process.env.STATUS_NOTIFICATIONS_TIMEOUT_MESSAGE,
-      ircConnectedMessage: options.statusNotifications?.ircConnectedMessage || process.env.STATUS_NOTIFICATIONS_IRC_CONNECTED_MESSAGE,
-      ircDisconnectedMessage: options.statusNotifications?.ircDisconnectedMessage || process.env.STATUS_NOTIFICATIONS_IRC_DISCONNECTED_MESSAGE,
-      ircReconnectingMessage: options.statusNotifications?.ircReconnectingMessage || process.env.STATUS_NOTIFICATIONS_IRC_RECONNECTING_MESSAGE
+      enabled: (statusNotifications?.enabled as boolean | undefined) ?? (process.env.STATUS_NOTIFICATIONS_ENABLED !== 'false'),
+      useDedicatedChannels: (statusNotifications?.useDedicatedChannels as boolean | undefined) ?? (process.env.STATUS_NOTIFICATIONS_USE_DEDICATED_CHANNELS !== 'false'),
+      joinLeaveChannelId: (statusNotifications?.joinLeaveChannelId as string | undefined) || process.env.STATUS_NOTIFICATIONS_JOIN_LEAVE_CHANNEL_ID,
+      timeoutChannelId: (statusNotifications?.timeoutChannelId as string | undefined) || process.env.STATUS_NOTIFICATIONS_TIMEOUT_CHANNEL_ID,
+      fallbackToMainChannel: (statusNotifications?.fallbackToMainChannel as boolean | undefined) ?? (process.env.STATUS_NOTIFICATIONS_FALLBACK_TO_MAIN !== 'false'),
+      includeJoins: (statusNotifications?.includeJoins as boolean | undefined) ?? (process.env.STATUS_NOTIFICATIONS_INCLUDE_JOINS !== 'false'),
+      includeLeaves: (statusNotifications?.includeLeaves as boolean | undefined) ?? (process.env.STATUS_NOTIFICATIONS_INCLUDE_LEAVES !== 'false'),
+      includeQuits: (statusNotifications?.includeQuits as boolean | undefined) ?? (process.env.STATUS_NOTIFICATIONS_INCLUDE_QUITS !== 'false'),
+      includeKicks: (statusNotifications?.includeKicks as boolean | undefined) ?? (process.env.STATUS_NOTIFICATIONS_INCLUDE_KICKS !== 'false'),
+      includeTimeouts: (statusNotifications?.includeTimeouts as boolean | undefined) ?? (process.env.STATUS_NOTIFICATIONS_INCLUDE_TIMEOUTS !== 'false'),
+      includeBotEvents: (statusNotifications?.includeBotEvents as boolean | undefined) ?? (process.env.STATUS_NOTIFICATIONS_INCLUDE_BOT_EVENTS === 'true'),
+      includeIRCConnectionEvents: (statusNotifications?.includeIRCConnectionEvents as boolean | undefined) ?? (process.env.STATUS_NOTIFICATIONS_INCLUDE_IRC_CONNECTION !== 'false'),
+      joinMessage: (statusNotifications?.joinMessage as string | undefined) || process.env.STATUS_NOTIFICATIONS_JOIN_MESSAGE,
+      leaveMessage: (statusNotifications?.leaveMessage as string | undefined) || process.env.STATUS_NOTIFICATIONS_LEAVE_MESSAGE,
+      quitMessage: (statusNotifications?.quitMessage as string | undefined) || process.env.STATUS_NOTIFICATIONS_QUIT_MESSAGE,
+      kickMessage: (statusNotifications?.kickMessage as string | undefined) || process.env.STATUS_NOTIFICATIONS_KICK_MESSAGE,
+      timeoutMessage: (statusNotifications?.timeoutMessage as string | undefined) || process.env.STATUS_NOTIFICATIONS_TIMEOUT_MESSAGE,
+      ircConnectedMessage: (statusNotifications?.ircConnectedMessage as string | undefined) || process.env.STATUS_NOTIFICATIONS_IRC_CONNECTED_MESSAGE,
+      ircDisconnectedMessage: (statusNotifications?.ircDisconnectedMessage as string | undefined) || process.env.STATUS_NOTIFICATIONS_IRC_DISCONNECTED_MESSAGE,
+      ircReconnectingMessage: (statusNotifications?.ircReconnectingMessage as string | undefined) || process.env.STATUS_NOTIFICATIONS_IRC_RECONNECTING_MESSAGE
     };
   }
 }
