@@ -2,6 +2,49 @@
 
 ## 🚀 Current Work (2025-11-20)
 
+### ✅ README Documentation Update
+**Date:** 2025-11-20
+**Files:** `README.md`
+
+**Updates:**
+Comprehensive documentation for new slash commands and configuration requirements.
+
+**Changes Made:**
+1. **`/pm` Command Documentation** (line 347-352)
+   - Added documentation for the new PM initiation command
+   - Explains thread creation/reuse behavior
+   - Documents optional initial message parameter
+   - Placed above `/irc-pm` management commands for logical flow
+
+2. **`/s3` Command Documentation** (line 369-397)
+   - Replaced old `/irc-s3` basic documentation with comprehensive system overview
+   - Documented three command groups: `config`, `files`, `status`
+   - Listed all subcommands with detailed descriptions:
+     - Configuration: set, view, test, remove
+     - File operations: upload, list
+     - Status monitoring
+   - Documented features:
+     - Per-guild configuration
+     - AES-256-GCM encryption
+     - S3-compatible service support
+     - File size limits and pagination
+   - Added requirements section with security notice
+
+3. **Environment Variables** (line 272-274)
+   - Added `S3_CONFIG_ENCRYPTION_KEY` with generation instructions
+   - Documented requirement for `/s3` command functionality
+   - Provided Node.js one-liner to generate secure 256-bit key
+
+**Structure:**
+- `/pm` command placed in "System Management" section with related `/irc-pm` commands
+- `/s3` command kept in "Feature Configuration" section
+- Environment variable added to existing "Environment Variables" section
+
+**Testing:**
+- Build succeeded without errors
+- No new test failures introduced
+- All 207 passing tests still pass
+
 ### ✅ S3 File Management System (Phase 1 & 2 COMPLETE)
 **Date:** 2025-11-20
 **Files:** `lib/persistence.ts`, `lib/s3-uploader.ts`, `lib/slash-commands.ts`, `docs/specs/S3_FILE_MANAGEMENT.md`

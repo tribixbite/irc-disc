@@ -269,6 +269,10 @@ S3_BUCKET=discord-attachments
 S3_ACCESS_KEY_ID=your_access_key
 S3_SECRET_ACCESS_KEY=your_secret_key
 
+# S3 Configuration Security (Required for /s3 commands)
+# Generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+S3_CONFIG_ENCRYPTION_KEY=your_64_character_hex_key_here
+
 # Monitoring
 METRICS_ENABLED=true
 METRICS_PORT=3001
@@ -344,6 +348,13 @@ Force IRC client to reconnect
 - Useful for testing connection recovery or network issues
 - 2-second delay between disconnect and reconnect
 
+#### `/pm <nickname> [message]`
+Start or continue an IRC private message conversation
+- Opens existing PM thread or creates a new one for the IRC user
+- Automatically unarchives archived threads
+- Optional initial message to send immediately
+- Thread links are returned for easy access
+
 #### `/irc-pm [subcommand]`
 Manage IRC private message threads
 - `list` - List active PM threads
@@ -359,11 +370,35 @@ Manage IRC bridge rate limiting
 
 ### 🎨 **Feature Configuration**
 
-#### `/irc-s3 [subcommand]`
-Manage S3 file upload settings
-- `status` - Show S3 upload configuration and status
-- `test` - Test S3 connection and upload functionality
-- `stats` - Show S3 upload statistics
+#### `/s3 [subcommand]`
+Comprehensive S3 file storage management with per-guild configuration
+
+**Configuration Commands** (`/s3 config`)
+- `set` - Configure S3 credentials and settings for this server
+  - Supports AWS S3, MinIO, DigitalOcean Spaces, Wasabi, and other S3-compatible services
+  - Credentials are encrypted with AES-256-GCM before storage
+  - Per-guild configuration with customizable bucket, region, endpoint, and key prefix
+  - Configurable file size limits (1-100 MB)
+- `view` - Display current S3 configuration (credentials hidden)
+- `test` - Test S3 connection and verify bucket access
+- `remove` - Delete S3 configuration for this server
+
+**File Operations** (`/s3 files`)
+- `upload` - Upload attachments to S3 with optional folder organization
+  - Returns public URL for sharing
+  - Supports custom folder prefixes
+  - Validates file size against configured limits
+- `list` - Browse uploaded files with pagination support
+  - Filter by folder prefix
+  - Shows file sizes and last modified timestamps
+
+**Status** (`/s3 status`)
+- Display comprehensive S3 system status and configuration summary
+
+**Requirements:**
+- Administrator permissions required
+- `S3_CONFIG_ENCRYPTION_KEY` environment variable must be set (see Configuration section)
+- S3 bucket must exist and be accessible with provided credentials
 
 #### `/irc-mentions [subcommand]`
 Manage IRC-to-Discord mention notifications
