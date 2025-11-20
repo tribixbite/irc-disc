@@ -2,6 +2,47 @@
 
 ## 🚀 Current Work (2025-11-20)
 
+### ✅ IRC Queue and Slash Command Type Safety (Round 15)
+**Date:** 2025-11-20
+**Files:** `lib/irc/response-aware-whois-queue.ts`, `lib/slash-commands.ts`
+
+**Changes:**
+Eliminated 2 `any` types with proper interface definitions:
+
+1. **lib/irc/response-aware-whois-queue.ts (1 any type → 0):**
+   - Created `IRCClientWithWhois` interface extending EventEmitter
+   - Added `whois(nick: string): void` method signature to interface
+   - Changed constructor parameter: `EventEmitter` → `IRCClientWithWhois`
+   - Changed private field type: `EventEmitter` → `IRCClientWithWhois`
+   - Removed cast: `(this.ircClient as any).whois(nick)` → `this.ircClient.whois(nick)`
+   - Type-safe access to IRC client's whois method without any cast
+
+2. **lib/slash-commands.ts (1 any type → 0):**
+   - Created `UserSearchCriteria` interface for IRC user search
+   - Properties: nick, hostname, realname, channel, isOperator, isSecure (all optional)
+   - Replaced `const searchCriteria: any = {}` with proper typed interface
+   - Maintains dynamic object building pattern (conditional property assignment)
+   - Type safety ensures only valid search criteria properties can be added
+
+**Results:**
+- Linting errors: 44 → 42 (5% reduction, 2 fewer errors)
+- `no-explicit-any` errors: 24 → 22 (8% reduction, 2 fewer)
+- All tests passing: 233/233 ✅
+- Build successful ✅
+
+**Overall Progress from Start (15 rounds):**
+- **Linting errors:** 178 → 42 (76% reduction, 136 fewer)
+- **no-explicit-any:** 83 initial → 22 remaining (73% reduction, 61 fewer)
+- **All 233 tests passing throughout all 15 rounds**
+
+**Pattern Established:**
+- **EventEmitter extension:** Extend EventEmitter to add specific method signatures
+- **Dynamic objects:** Create interfaces with all properties optional for conditional building
+- **Type safety:** Eliminates casts while preserving dynamic behavior
+- **Method access:** Properly typed interfaces enable direct method calls without casts
+
+**Status:** COMPLETED ✅
+
 ### ✅ Persistence Layer Type Safety (Round 14)
 **Date:** 2025-11-20
 **Files:** `lib/persistence.ts`
