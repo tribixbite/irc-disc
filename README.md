@@ -389,9 +389,11 @@ Comprehensive S3 file storage management with per-guild configuration
   - Supports custom folder prefixes
   - Validates file size against configured limits
   - Rate limited: 5 uploads per 10 minutes per user
-- `list` - Browse uploaded files with pagination support
+- `list` - Browse uploaded files with interactive pagination
   - Filter by folder prefix
   - Shows file sizes and last modified timestamps
+  - Interactive "Next →" button to load more results (20 files per page)
+  - Uses AWS S3 continuation tokens for efficient large bucket navigation
 - `info` - Get detailed file information
   - View file metadata (size, type, last modified, ETag)
   - Display public URL for sharing
