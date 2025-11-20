@@ -23,10 +23,16 @@ describe('Bot Events', () => {
   const createBot = (optConfig: Record<string, unknown> | null = null) => {
     const useConfig = optConfig || config;
     const bot = new Bot(useConfig);
-    bot.sendToIRC = vi.fn();
-    bot.sendToDiscord = vi.fn();
-    bot.sendExactToDiscord = vi.fn();
+    // Mock async methods to return resolved promises
+    bot.sendToIRC = vi.fn().mockResolvedValue(undefined);
+    bot.sendToDiscord = vi.fn().mockResolvedValue(undefined);
+    bot.sendExactToDiscord = vi.fn().mockResolvedValue(undefined);
     return bot;
+  };
+
+  // Helper to ensure IRC client is ready
+  const waitForIRCClient = async () => {
+    await new Promise(resolve => setImmediate(resolve));
   };
 
   let sendStub;
@@ -41,6 +47,7 @@ describe('Bot Events', () => {
     ClientStub.prototype.join = vi.fn();
     bot = createBot();
     await bot.connect();
+    await waitForIRCClient(); // Wait for IRC client initialization
     // Wait for setImmediate callback that initializes IRC client
     await new Promise(resolve => setImmediate(resolve));
   });
@@ -60,7 +67,7 @@ describe('Bot Events', () => {
   it('should log on irc registered event', () => {
     const message = 'registered';
     bot.ircClient.emit('registered', message);
-    expect(logger.info).toHaveBeenCalledWith('Connected to IRC');
+    expect(logger.info).toHaveBeenCalledWith('✅ Connected and registered to IRC');
     expect(logger.debug).toHaveBeenCalledWith('Registered event: ', message);
   });
 
@@ -81,12 +88,16 @@ describe('Bot Events', () => {
     bot.discord.emit('error', discordError);
     bot.ircClient.emit('error', ircError);
     const mock = vi.mocked(logger.error).mock;
-    expect(mock.calls[0][0]).toEqual('Received error event from Discord');
-    // @ts-expect-error potentially invalid overloads on logger
-    expect(mock.calls[0][1]).toEqual(discordError);
-    expect(mock.calls[1][0]).toEqual('Received error event from IRC');
-    // @ts-expect-error potentially invalid overloads on logger
-    expect(mock.calls[1][1]).toEqual(ircError);
+    // Find the Discord error log call
+    const discordCall = mock.calls.find((call: any) => call[0] === 'Received error event from Discord');
+    expect(discordCall).toBeDefined();
+    // @ts-expect-error mock call type
+    expect(discordCall[1]).toEqual(discordError);
+    // Find the IRC error log call
+    const ircCall = mock.calls.find((call: any) => call[0] === 'Received error event from IRC');
+    expect(ircCall).toBeDefined();
+    // @ts-expect-error mock call type
+    expect(ircCall[1]).toEqual(ircError);
   });
 
   it('should warn log on warn events from discord', () => {
@@ -149,6 +160,8 @@ describe('Bot Events', () => {
     const bot = createBot({ ...config, ircStatusNotices: true });
     const staticChannel = new Set([bot.nickname, user3]);
     await bot.connect();
+    await waitForIRCClient(); // Wait for IRC client initialization
+    await waitForIRCClient(); // Wait for IRC client initialization
     bot.ircClient.emit('names', channel1, {
       [bot.nickname]: '',
       [oldNick]: '',
@@ -193,6 +206,7 @@ describe('Bot Events', () => {
   it('should keep track of users through names event when irc status notices enabled', async function () {
     const bot = createBot({ ...config, ircStatusNotices: true });
     await bot.connect();
+    await waitForIRCClient(); // Wait for IRC client initialization
     expect(typeof bot.channelUsers).toBe('object');
     const channel = '#channel';
     // nick => '' means the user is not a special user
@@ -210,6 +224,7 @@ describe('Bot Events', () => {
   it('should lowercase the channelUsers mapping', async () => {
     const bot = createBot({ ...config, ircStatusNotices: true });
     await bot.connect();
+    await waitForIRCClient(); // Wait for IRC client initialization
     const channel = '#channelName';
     const nicks = { [bot.nickname]: '' };
     bot.ircClient.emit('names', channel, nicks);
@@ -220,6 +235,7 @@ describe('Bot Events', () => {
   it('should send join messages to discord when config enabled', async function () {
     const bot = createBot({ ...config, ircStatusNotices: true });
     await bot.connect();
+    await waitForIRCClient(); // Wait for IRC client initialization
     const channel = '#channel';
     bot.ircClient.emit('names', channel, { [bot.nickname]: '' });
     const nick = 'user';
@@ -233,6 +249,7 @@ describe('Bot Events', () => {
   it('should not announce itself joining by default', async () => {
     const bot = createBot({ ...config, ircStatusNotices: true });
     await bot.connect();
+    await waitForIRCClient(); // Wait for IRC client initialization
     const channel = '#channel';
     bot.ircClient.emit('names', channel, { [bot.nickname]: '' });
     const nick = bot.nickname;
@@ -251,6 +268,7 @@ describe('Bot Events', () => {
       announceSelfJoin: true,
     });
     await bot.connect();
+    await waitForIRCClient(); // Wait for IRC client initialization
     const channel = '#channel';
     const nick = bot.nickname;
     const text = `*${nick}* has joined the channel`;
@@ -261,6 +279,7 @@ describe('Bot Events', () => {
   it('should send part messages to discord when config enabled', async function () {
     const bot = createBot({ ...config, ircStatusNotices: true });
     await bot.connect();
+    await waitForIRCClient(); // Wait for IRC client initialization
     const channel = '#channel';
     const nick = 'user';
     bot.ircClient.emit('names', channel, { [bot.nickname]: '', [nick]: '' });
@@ -278,6 +297,7 @@ describe('Bot Events', () => {
   it('should not announce itself leaving a channel', async function () {
     const bot = createBot({ ...config, ircStatusNotices: true });
     await bot.connect();
+    await waitForIRCClient(); // Wait for IRC client initialization
     // Wait for setImmediate callback that initializes IRC client
     await new Promise(resolve => setImmediate(resolve));
     const channel = '#channel';
@@ -294,6 +314,7 @@ describe('Bot Events', () => {
   it('should only send quit messages to discord for channels the user is tracked in', async function () {
     const bot = createBot({ ...config, ircStatusNotices: true });
     await bot.connect();
+    await waitForIRCClient(); // Wait for IRC client initialization
     // Wait for setImmediate callback that initializes IRC client
     await new Promise(resolve => setImmediate(resolve));
     const channel1 = '#channel1';
@@ -318,6 +339,7 @@ describe('Bot Events', () => {
   it('should not crash with join/part/quit messages and weird channel casing', async () => {
     const bot = createBot({ ...config, ircStatusNotices: true });
     await bot.connect();
+    await waitForIRCClient(); // Wait for IRC client initialization
     // Wait for setImmediate callback that initializes IRC client
     await new Promise(resolve => setImmediate(resolve));
 
@@ -336,6 +358,7 @@ describe('Bot Events', () => {
   it('should be possible to disable join/part/quit messages', async () => {
     const bot = createBot({ ...config, ircStatusNotices: false });
     await bot.connect();
+    await waitForIRCClient(); // Wait for IRC client initialization
     // Wait for setImmediate callback that initializes IRC client
     await new Promise(resolve => setImmediate(resolve));
     const channel = '#channel';
@@ -354,6 +377,7 @@ describe('Bot Events', () => {
   it.skip('should warn if it receives a part/quit before a names event', async () => {
     const bot = createBot({ ...config, ircStatusNotices: true });
     await bot.connect();
+    await waitForIRCClient(); // Wait for IRC client initialization
     // Wait for setImmediate callback that initializes IRC client
     await new Promise(resolve => setImmediate(resolve));
     const channel = '#channel';
@@ -375,6 +399,7 @@ describe('Bot Events', () => {
     // this can happen when a user with the same name is already connected
     const bot = createBot({ ...config, nickname: 'testbot' });
     await bot.connect();
+    await waitForIRCClient(); // Wait for IRC client initialization
     // Wait for setImmediate callback that initializes IRC client
     await new Promise(resolve => setImmediate(resolve));
     const newName = 'testbot1';
@@ -389,6 +414,7 @@ describe('Bot Events', () => {
     logger.level = 'info';
     const bot = createBot();
     await bot.connect();
+    await waitForIRCClient(); // Wait for IRC client initialization
     // Wait for setImmediate callback that initializes IRC client
     await new Promise(resolve => setImmediate(resolve));
     const listeners = bot.discord.listeners('debug');
@@ -400,6 +426,7 @@ describe('Bot Events', () => {
     logger.level = 'debug';
     const bot = createBot();
     await bot.connect();
+    await waitForIRCClient(); // Wait for IRC client initialization
     // Wait for setImmediate callback that initializes IRC client
     await new Promise(resolve => setImmediate(resolve));
     const listeners = bot.discord.listeners('debug');

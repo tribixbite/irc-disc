@@ -2,6 +2,43 @@
 
 ## 🚀 Current Work (2025-11-20)
 
+### 🔧 Test Suite Improvements (Partial)
+**Date:** 2025-11-20
+**Files:** `test/bot-events.test.ts`
+
+**Problem:**
+15 tests in bot-events.test.ts were failing due to:
+1. Changed log message formats ('Connected to IRC' → '✅ Connected and registered to IRC')
+2. Mocked methods not returning promises (causing `.catch()` errors)
+3. Async IRC client initialization timing issues
+
+**Fixes Applied:**
+1. **Updated log message expectations** - Fixed 'Connected to IRC' → '✅ Connected and registered to IRC'
+2. **Fixed mock methods** - Changed `vi.fn()` to `vi.fn().mockResolvedValue(undefined)` for async methods
+3. **Improved error test** - Used `.find()` to search for log calls instead of relying on specific indices
+4. **Added waitForIRCClient helper** - Attempts to synchronize with setImmediate initialization
+
+**Results:**
+- ✅ Fixed: 5 tests now passing
+- ✅ Test count: 212 passing (up from 207)
+- ⚠️ Remaining: 10 tests still failing (all async timing related)
+
+**Remaining Issues:**
+All 10 failures are IRC client initialization timing:
+- `should error log on error events` - IRC error handler not attached
+- Tests with custom bot instances - IRC client listeners not ready
+- Events emitted before listeners attached
+
+**Root Cause:**
+IRC client is initialized in `setImmediate()` callback (lib/bot.ts), but event listeners may not be attached when test events are emitted immediately after `bot.connect()`.
+
+**Future Work:**
+1. Add `bot.waitForReady()` Promise-returning method
+2. Refactor IRC client initialization to be properly awaitable
+3. Or mock IRC client at higher level to avoid timing issues
+
+**Status:** PARTIAL FIX ✅ - 5 tests fixed, 10 require IRC init refactoring
+
 ### ✅ S3 Share Command (Phase 3)
 **Date:** 2025-11-20
 **Files:** `lib/slash-commands.ts`, `test/slash-commands.test.ts`, `docs/specs/S3_FILE_MANAGEMENT.md`, `README.md`
