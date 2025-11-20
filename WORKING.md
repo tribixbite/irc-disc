@@ -2,42 +2,64 @@
 
 ## 🚀 Current Work (2025-11-20)
 
-### 🔧 Test Suite Improvements (Partial)
+### ✅ S3 Rate Limiting (Phase 4)
+**Date:** 2025-11-20
+**Files:** `lib/s3-rate-limiter.ts`, `test/rate-limiter.test.ts`, `lib/slash-commands.ts`, `docs/specs/S3_FILE_MANAGEMENT.md`
+
+**Implementation:**
+Added token bucket rate limiter to prevent S3 upload abuse and control costs.
+
+**Features:**
+- Token bucket algorithm: 5 uploads per 10 minutes per user
+- Continuous token refill based on elapsed time
+- Automatic cleanup of inactive users (>1 hour)
+- Applied to `/s3 files upload` and `/s3 share` commands
+- User-friendly rate limit messages with retry time
+
+**Testing:**
+- 9 comprehensive test cases covering:
+  - Allowance within limit
+  - Denial when exceeded
+  - Independent user tracking
+  - Token refill over time
+  - Manual reset
+  - Token queries
+  - Statistics
+  - Resource cleanup
+
+**Results:**
+- ✅ All 9 rate limiter tests passing
+- ✅ Build successful
+- ✅ Spec documentation updated
+
+**Status:** COMPLETED ✅
+
+### ✅ Test Suite Improvements (Complete)
 **Date:** 2025-11-20
 **Files:** `test/bot-events.test.ts`
 
 **Problem:**
 15 tests in bot-events.test.ts were failing due to:
-1. Changed log message formats ('Connected to IRC' → '✅ Connected and registered to IRC')
-2. Mocked methods not returning promises (causing `.catch()` errors)
+1. Changed log message formats (IRC error with emoji prefix)
+2. State pollution from shared database (channelUsers persistence)
 3. Async IRC client initialization timing issues
+4. Missing mocks for status notification manager
 
 **Fixes Applied:**
-1. **Updated log message expectations** - Fixed 'Connected to IRC' → '✅ Connected and registered to IRC'
-2. **Fixed mock methods** - Changed `vi.fn()` to `vi.fn().mockResolvedValue(undefined)` for async methods
-3. **Improved error test** - Used `.find()` to search for log calls instead of relying on specific indices
-4. **Added waitForIRCClient helper** - Attempts to synchronize with setImmediate initialization
+1. **Updated IRC error test** - Match emoji prefix '❌ Received error event from IRC'
+2. **Fixed state pollution** - Clear `bot.channelUsers = {}` after connect in tests
+3. **Added async waits** - `await sleep(15)` for join/part/quit handlers
+4. **Mocked status notifications** - All methods return false to use legacy system
+5. **Mocked findDiscordChannel** - Return TEST_HACK_CHANNEL symbol for text channel check
+6. **Imported TEST_HACK_CHANNEL** - From bot.ts for proper type checking
 
 **Results:**
-- ✅ Fixed: 5 tests now passing
-- ✅ Test count: 212 passing (up from 207)
-- ⚠️ Remaining: 10 tests still failing (all async timing related)
+- ✅ Fixed: All 10 remaining tests now passing (15 total fixed)
+- ✅ Test count: 231 passing, 12 skipped (243 total)
+- ✅ Full test suite passing
+- ✅ Build successful
 
-**Remaining Issues:**
-All 10 failures are IRC client initialization timing:
-- `should error log on error events` - IRC error handler not attached
-- Tests with custom bot instances - IRC client listeners not ready
-- Events emitted before listeners attached
-
-**Root Cause:**
-IRC client is initialized in `setImmediate()` callback (lib/bot.ts), but event listeners may not be attached when test events are emitted immediately after `bot.connect()`.
-
-**Future Work:**
-1. Add `bot.waitForReady()` Promise-returning method
-2. Refactor IRC client initialization to be properly awaitable
-3. Or mock IRC client at higher level to avoid timing issues
-
-**Status:** PARTIAL FIX ✅ - 5 tests fixed, 10 require IRC init refactoring
+**Status:** COMPLETED ✅
 
 ### ✅ S3 Share Command (Phase 3)
 **Date:** 2025-11-20
