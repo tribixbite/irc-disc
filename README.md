@@ -15,7 +15,7 @@
 
 ---
 
-## 🔔 What's New in v1.2.2
+## 🔔 What's New in v1.2.3
 
 **Code Quality & Type Safety:**
 - ✅ **100% TypeScript Type Safety** - Eliminated all 83 explicit `any` types

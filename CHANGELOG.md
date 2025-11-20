@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.2.2] - 2025-11-20
+## [1.2.3] - 2025-11-20
 
 ### Code Quality & Type Safety
 
@@ -59,6 +59,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Maintained 100% test pass rate through all 18 refactoring rounds
 - 233 tests covering all functionality
 - Enhanced test type safety with proper mock typing
+
+## [1.2.2] - 2025-11-XX
+
+### Added
+- **S3 File Management System**: Comprehensive S3 file operations via Discord slash commands
+  - `/s3 config` subcommands for secure credential management
+  - `/s3 files` subcommands for upload, list, info, rename, delete operations
+  - `/s3 share` command for streamlined upload and share workflow
+  - Rate limiting (5 uploads per 10 minutes per user)
+  - Pagination UI with interactive buttons for file listing
+  - Image preview for uploaded files
+  - File metadata display with size, content type, last modified
+  - Interactive delete confirmation with 60-second timeout
+
+### Security
+- AES-256-GCM encryption for S3 credentials in database
+- Admin-only command permissions by default
+- Role-based access control support
+- Secure credential handling (never logged or displayed)
 
 ## [1.2.1] - 2025-11-09
 
