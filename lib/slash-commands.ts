@@ -5,10 +5,14 @@ import {
   MessageAttachment,
   ApplicationCommandData,
   TextChannel,
-  ThreadChannel
+  ThreadChannel,
+  MessageActionRow,
+  MessageButton
 } from 'discord.js';
 import { logger } from './logger';
 import Bot from './bot';
+import { S3Uploader } from './s3-uploader';
+import type { S3Config } from './persistence';
 import { IRCChannelUser, IRCChannelListItem } from './irc-user-manager';
 
 export interface SlashCommand {
