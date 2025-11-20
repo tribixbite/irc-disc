@@ -79,7 +79,8 @@ describe('Private Message Configuration', () => {
     bot.persistence.updatePMThreadNick = mockUpdatePMThreadNick;
 
     // Mock the PM channel finding to return null (no actual channel)
-    bot.findPmChannel = () => Promise.resolve(null);
+    // eslint-disable-next-line @typescript-eslint/require-await
+    bot.findPmChannel = async () => null;
 
     // Update nick change
     await bot.updatePmThreadForNickChange('oldnick', 'newnick');
