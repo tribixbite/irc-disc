@@ -35,6 +35,40 @@
 
 **Status:** COMPLETED ✅
 
+### ✅ Additional Linting Improvements
+**Date:** 2025-11-20
+**Files:** `lib/bot.ts`, `lib/metrics.ts`, `lib/persistence-bun.ts`, `lib/metrics-server.ts`, `lib/slash-commands.ts`
+
+**Improvements:**
+1. **Floating Promise Warnings** (5 fixes)
+   - bot.ts:299 - S3 test connection on initialization
+   - metrics.ts:80 - saveMetrics in setInterval
+   - metrics.ts:89 - loadMetrics on startup
+   - metrics.ts:435 - saveMetrics in resetMetrics
+   - metrics.ts:586 - saveMetrics in destroy
+   - persistence-bun.ts:277 - close in destroy method
+   - Added `void` operator to all fire-and-forget async operations
+
+2. **Unused Parameter Warnings** (3 fixes)
+   - metrics-server.ts:177 - _error in handleError (generic handler)
+   - persistence-bun.ts:59-60 - _maxRetries/_baseDelay (API compatibility)
+   - slash-commands.ts:3413 - _action (reserved for prev button)
+   - Prefixed with underscore to indicate intentionally unused
+
+**Testing:**
+- ✅ All 243 tests passing (231 passed, 12 skipped)
+- ✅ Build successful
+- ✅ No behavioral changes
+- ✅ Reduced 8 linting warnings
+
+**Results:**
+- Fixed 5 floating promise warnings
+- Fixed 3 unused parameter warnings
+- Cleaner async/await patterns
+- Better code documentation
+
+**Status:** COMPLETED ✅
+
 ### ✅ S3 File List Pagination UI (Phase 5)
 **Date:** 2025-11-20
 **Files:** `lib/slash-commands.ts`, `lib/bot.ts`
