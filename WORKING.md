@@ -2,6 +2,32 @@
 
 ## 🚀 Current Work (2025-11-20)
 
+### ✅ Additional Code Quality Improvements (Round 2)
+**Date:** 2025-11-20
+**Files:** `lib/persistence.ts`, `lib/message-sync.ts`
+
+**Improvements:**
+1. **Fixed Unused Parameter** (persistence.ts:216)
+   - Prefixed `reject` parameter with underscore in `getPMThread()`
+   - Indicates intentionally unused parameter (errors resolve to null instead of rejecting)
+
+2. **Removed Unnecessary Type Assertions** (message-sync.ts:69, 196)
+   - Removed `as Message` cast when `newMessage.partial` is false
+   - Removed non-null assertion `msg.id!` in `handleBulkDelete()`
+   - TypeScript can infer correct types without explicit assertions
+
+**Testing:**
+- ✅ All 243 tests passing (231 passed, 12 skipped)
+- ✅ Build successful
+- ✅ No behavioral changes
+
+**Results:**
+- Fixed 1 unused parameter warning
+- Removed 2 unnecessary type assertions
+- Reduced linting errors from 178 to 176 (2 fewer errors)
+
+**Status:** COMPLETED ✅
+
 ### ✅ Code Quality Improvements
 **Date:** 2025-11-20
 **Files:** `lib/bot.ts`, `lib/recovery-manager.ts`, `lib/metrics.ts`

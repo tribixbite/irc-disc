@@ -213,7 +213,7 @@ export class PersistenceService {
   }
 
   async getPMThread(ircNick: string): Promise<PMThreadData | null> {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve, _reject) => {
       this.db.get(`
         SELECT irc_nick, thread_id, channel_id, last_activity 
         FROM pm_threads 

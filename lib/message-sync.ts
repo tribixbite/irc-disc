@@ -66,7 +66,7 @@ export class MessageSynchronizer {
           return;
         }
       } else {
-        fullMessage = newMessage as Message;
+        fullMessage = newMessage;
       }
 
       const messageRecord = this.messageHistory.get(fullMessage.id);
@@ -193,7 +193,7 @@ export class MessageSynchronizer {
     try {
       const deletedCount = messages.size;
       const relevantMessages = Array.from(messages.values())
-        .filter(msg => this.messageHistory.has(msg.id!))
+        .filter(msg => this.messageHistory.has(msg.id))
         .length;
 
       if (relevantMessages === 0) {
