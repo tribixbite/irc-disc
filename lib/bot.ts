@@ -4,9 +4,32 @@ import discord, {
   BaseGuildTextChannel,
   Intents,
   TextChannel,
+  ThreadChannel,
   WebhookClient,
 } from 'discord.js';
 import util from 'util';
+
+// Interface for util with log method (polyfill for Node.js 24+)
+interface UtilWithLog {
+  log: (...args: unknown[]) => void;
+}
+
+// Interface for Discord.js raw gateway packets
+interface DiscordRawPacket {
+  t: string;
+  d?: {
+    channel_id?: string;
+    author?: {
+      username?: string;
+    };
+    [key: string]: unknown;
+  };
+}
+
+// Extended Discord Client with diagnostic instance ID
+interface DiscordClientWithInstanceId extends discord.Client {
+  _instanceId?: string;
+}
 import { LRUCache } from 'lru-cache';
 import { logger } from './logger';
 import { validateChannelMapping } from './validators';
@@ -34,7 +57,7 @@ process.on('unhandledRejection', (reason, promise) => {
 // Polyfill for deprecated util.log (removed in Node.js 24)
 // The irc-upd library still uses it for debug logging
 if (!util.log) {
-  (util as any).log = function(...args: any[]) {
+  (util as UtilWithLog).log = function(...args: unknown[]) {
     console.log(new Date().toISOString(), ...args);
   };
 }
@@ -165,8 +188,8 @@ class Bot {
     });
 
     // Add unique instance ID for debugging
-    (this.discord as any)._instanceId = Math.random().toString(36).substring(7);
-    logger.info(`[DIAGNOSTIC] Discord Client created with instance ID: ${(this.discord as any)._instanceId}`);
+    (this.discord as DiscordClientWithInstanceId)._instanceId = Math.random().toString(36).substring(7);
+    logger.info(`[DIAGNOSTIC] Discord Client created with instance ID: ${(this.discord as DiscordClientWithInstanceId)._instanceId}`);
 
     this.server = options.server;
     this.nickname = options.nickname;
@@ -320,7 +343,7 @@ class Bot {
     // Pass enabled=false to constructor to prevent spam (respects explicit config if set)
     const finalStatusConfig: Partial<typeof statusConfig> & { enabled: boolean } = {
       ...statusConfig,
-      enabled: (options.statusNotifications as any)?.enabled ?? false
+      enabled: (options.statusNotifications as Record<string, unknown> | undefined)?.enabled as boolean ?? false
     };
     this.statusNotifications = new StatusNotificationManager(finalStatusConfig);
   }
@@ -387,9 +410,9 @@ class Bot {
     this.attachDiscordListeners();
 
     try {
-      logger.info(`[DIAGNOSTIC] Logging in to Discord with client instance: ${(this.discord as any)._instanceId}`);
+      logger.info(`[DIAGNOSTIC] Logging in to Discord with client instance: ${(this.discord as DiscordClientWithInstanceId)._instanceId}`);
       await this.discord.login(this.discordToken);
-      logger.info(`[DIAGNOSTIC] Discord login promise resolved for instance: ${(this.discord as any)._instanceId}`);
+      logger.info(`[DIAGNOSTIC] Discord login promise resolved for instance: ${(this.discord as DiscordClientWithInstanceId)._instanceId}`);
 
       // Event loop canary to detect blocking (reduced frequency to avoid log bloat)
       // Only log once per minute since the bot is stable
@@ -747,11 +770,11 @@ class Bot {
 
   private attachDiscordListeners() {
     logger.info('[DIAGNOSTIC] attachDiscordListeners() called - attaching event handlers');
-    logger.info(`[DIAGNOSTIC] Attaching listeners to client instance: ${(this.discord as any)._instanceId}`);
+    logger.info(`[DIAGNOSTIC] Attaching listeners to client instance: ${(this.discord as DiscordClientWithInstanceId)._instanceId}`);
 
     // CRITICAL DIAGNOSTIC: raw event listener to detect MESSAGE_CREATE gateway packets
     // This determines if Discord is SENDING events vs if Discord.js is EMITTING them
-    this.discord.on('raw', (packet: any) => {
+    this.discord.on('raw', (packet: DiscordRawPacket) => {
       if (packet.t === 'MESSAGE_CREATE') {
         logger.info(`[RAW] MESSAGE_CREATE gateway packet received from Discord!`);
         logger.info(`[RAW] Packet channel_id: ${packet.d?.channel_id}, author: ${packet.d?.author?.username}`);
@@ -770,7 +793,7 @@ class Bot {
 
     this.discord.on('ready', async () => {
       logger.info('Connected to Discord');
-      logger.info(`[DIAGNOSTIC] ready event fired on client instance: ${(this.discord as any)._instanceId}`);
+      logger.info(`[DIAGNOSTIC] ready event fired on client instance: ${(this.discord as DiscordClientWithInstanceId)._instanceId}`);
       
       // Register slash commands when bot is ready
       await registerSlashCommands(this);
@@ -809,7 +832,7 @@ class Bot {
     });
 
     this.discord.on('messageCreate', (message) => {
-      logger.info(`[EVENT] messageCreate fired on client instance: ${(message.client as any)._instanceId}`);
+      logger.info(`[EVENT] messageCreate fired on client instance: ${(message.client as DiscordClientWithInstanceId)._instanceId}`);
       logger.info(`[EVENT] Message details - Channel: ${message.channel.id}, Author: ${message.author.tag}, Content: ${message.content?.substring(0, 50) || '(no content)'}`);
       // Quick check: is this a PM thread message?
       if (message.channel &&
@@ -1020,7 +1043,7 @@ class Bot {
       
       // Send join notification via status notification manager
       const discordChannel = this.findDiscordChannel(channel);
-      if (discordChannel && isTextChannel(discordChannel as any)) {
+      if (discordChannel && isTextChannel(discordChannel as AnyChannel)) {
         const sent = await this.statusNotifications.sendJoinNotification(
           nick,
           channelName,
@@ -1073,7 +1096,7 @@ class Bot {
       
       // Send leave notification via status notification manager
       const discordChannel = this.findDiscordChannel(channel);
-      if (discordChannel && isTextChannel(discordChannel as any)) {
+      if (discordChannel && isTextChannel(discordChannel as AnyChannel)) {
         const sent = await this.statusNotifications.sendLeaveNotification(
           nick,
           channelName,
@@ -1119,7 +1142,7 @@ class Bot {
         
         // Send quit notification via status notification manager (only once per user)
         const discordChannel = this.findDiscordChannel(channel);
-        if (discordChannel && isTextChannel(discordChannel as any) && !processedChannels.has(channel)) {
+        if (discordChannel && isTextChannel(discordChannel as AnyChannel) && !processedChannels.has(channel)) {
           processedChannels.add(channel);
           
           const sent = await this.statusNotifications.sendQuitNotification(
@@ -1489,9 +1512,9 @@ class Bot {
         discordChannel = this.discord.channels.cache
           // unclear if this UNKNOWN is a test bug or happens in the real world
           .filter(
-            (c: any) =>
-              c.type === 'text' ||
-              c.type === 'UNKNOWN' ||
+            (c: AnyChannel) =>
+              (c as BaseGuildTextChannel).type === ('text' as unknown as BaseGuildTextChannel['type']) ||
+              (c as BaseGuildTextChannel).type === ('UNKNOWN' as unknown as BaseGuildTextChannel['type']) ||
               c.type === 'GUILD_TEXT',
           )
           .find(
@@ -1933,7 +1956,7 @@ class Bot {
     // Send notification to first available Discord channel
     for (const [discordChannelId] of channelMappingEntries) {
       const discordChannel = this.findDiscordChannel(discordChannelId);
-      if (discordChannel && isTextChannel(discordChannel as any)) {
+      if (discordChannel && isTextChannel(discordChannel as AnyChannel)) {
         const textChannel = discordChannel as TextChannel;
 
         // Call appropriate notification method based on status
@@ -1976,9 +1999,9 @@ class Bot {
     if (this.pmChannelId.startsWith('#')) {
       const channelName = this.pmChannelId.slice(1);
       const channel = this.discord.channels.cache
-        .filter((c: any) => 
-          c.type === 'GUILD_TEXT' && 
-          c.name === channelName
+        .filter((c: AnyChannel) =>
+          c.type === 'GUILD_TEXT' &&
+          (c as BaseGuildTextChannel).name === channelName
         )
         .first() as BaseGuildTextChannel | undefined;
       
@@ -1988,7 +2011,7 @@ class Bot {
     return null;
   }
 
-  async findOrCreatePmThread(ircNick: string): Promise<any> {
+  async findOrCreatePmThread(ircNick: string): Promise<ThreadChannel | null> {
     const pmChannel = await this.findPmChannel();
     if (!pmChannel) {
       logger.warn('PM channel not found or not configured');
