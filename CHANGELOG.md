@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Configurable Database Cleanup Thresholds** - Database retention periods now fully configurable
+  - `dbCleanupPMThreadDays`: Control PM thread mapping retention (1-365 days, default: 7)
+  - `dbCleanupChannelUsersDays`: Control channel user cache retention (0.001-365 days, default: 1)
+  - Enhanced logging shows configured thresholds on cleanup
+  - Supports use cases from aggressive cleanup (hours) to archival (years)
+- **Graceful Shutdown Handlers** - Clean SIGTERM/SIGINT handling
+  - Properly closes Discord and IRC connections on shutdown signals
+  - Database connections closed cleanly
+  - Prevents orphaned connections and incomplete transactions
+  - Exit codes properly set for monitoring systems
+
+### Changed
+- **README Documentation** - Comprehensive database configuration section
+  - Added "Database Cleanup Configuration" subsection with examples
+  - Updated Enterprise Settings to reflect actual SQLite implementation (removed Redis)
+  - Removed outdated REDIS_URL environment variable
+  - Added guidance on when to adjust cleanup thresholds
+
+### Fixed
+- **All 16 Issues in AREAS_NEEDING_WORK.md Completed** 🎉
+  - All high-priority issues resolved
+  - All medium-priority issues resolved
+  - All low-priority issues resolved
+  - Project now in excellent production-ready state
+
 ## [1.2.3] - 2025-11-20
 
 ### Code Quality & Type Safety
