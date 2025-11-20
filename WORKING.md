@@ -2,6 +2,54 @@
 
 ## 🚀 Current Work (2025-11-20)
 
+### ✅ S3 File Operations Expansion (Phase 2.5)
+**Date:** 2025-11-20
+**Files:** `lib/slash-commands.ts`, `test/slash-commands.test.ts`, `docs/specs/S3_FILE_MANAGEMENT.md`, `README.md`
+
+**Implementation:**
+Added three additional file operation commands to complete full S3 CRUD functionality.
+
+**New Commands:**
+1. **`/s3 files info <key>`**
+   - Displays comprehensive file metadata
+   - Shows: size (KB + bytes), content type, last modified, ETag
+   - Generates and displays public URL
+   - Lists custom S3 metadata if present
+
+2. **`/s3 files rename <old_key> <new_key>`**
+   - Renames files using S3 copy+delete operation
+   - Returns updated public URL
+   - Atomic operation with error handling
+
+3. **`/s3 files delete <key>`**
+   - Interactive confirmation with Discord buttons
+   - Displays warning embed with file details
+   - 60-second timeout for safety
+   - "Delete File" (danger style) and "Cancel" buttons
+   - Prevents accidental deletion
+
+**Handler Implementation:**
+- Added 3 case blocks in `handleS3FilesCommands()` (lines 1245-1385)
+- Implemented button collector with proper type guards
+- Fixed `fetchReply()` TypeScript union type handling
+- All handlers use ephemeral replies for security
+
+**Command Definition Updates:**
+- Added 3 new subcommands to `/s3 files` group (lines 1442-1451)
+- Total file operations: 5 (upload, list, info, rename, delete)
+
+**Testing:**
+- Updated test to verify 5 file operation subcommands
+- Added checks for presence of info, rename, delete commands
+- All 207 tests pass ✅
+
+**Documentation:**
+- Updated S3 spec: Phase 2 now includes info/rename/delete as complete
+- Updated README: Documented all new file operations with feature descriptions
+- Updated WORKING.md: This entry
+
+**Status:** COMPLETE ✅ - Full S3 CRUD operations now available
+
 ### ✅ README Documentation Update
 **Date:** 2025-11-20
 **Files:** `README.md`

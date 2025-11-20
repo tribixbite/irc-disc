@@ -12,14 +12,16 @@
 
 ### Phase 2: Slash Commands (✅ COMPLETED)
 - ✅ `/s3 config` subcommand group (set, view, test, remove)
-- ✅ `/s3 files` subcommand group (upload, list)
+- ✅ `/s3 files` subcommand group (upload, list, info, rename, delete)
 - ✅ `/s3 status` enhanced command
-- ⏳ `/s3 files` additional operations (info, rename, delete) - deferred
+- ✅ File info command with metadata display
+- ✅ File rename with copy+delete operation
+- ✅ File delete with interactive confirmation (60s timeout)
 - ⏳ `/s3 share` command with image preview - deferred
 - ⏳ Rate limiting for uploads - deferred
 - ⏳ Pagination UI with buttons - deferred
 
-**Implementation Complete**: Core S3 file management is fully functional. Future enhancements marked as deferred can be added incrementally.
+**Implementation Complete**: Full S3 file management is functional with all core CRUD operations. Future enhancements marked as deferred can be added incrementally.
 
 ## Overview
 

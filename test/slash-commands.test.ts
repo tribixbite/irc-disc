@@ -35,7 +35,15 @@ describe('Slash Commands', () => {
     const filesGroup = (s3Command.data as any).options.find((opt: any) => opt.name === 'files');
     expect(filesGroup).toBeDefined();
     expect(filesGroup.type).toBe('SUB_COMMAND_GROUP');
-    expect(filesGroup.options).toHaveLength(2); // upload, list
+    expect(filesGroup.options).toHaveLength(5); // upload, list, info, rename, delete
+
+    // Verify new file operation commands exist
+    const subcommandNames = filesGroup.options.map((opt: any) => opt.name);
+    expect(subcommandNames).toContain('upload');
+    expect(subcommandNames).toContain('list');
+    expect(subcommandNames).toContain('info');
+    expect(subcommandNames).toContain('rename');
+    expect(subcommandNames).toContain('delete');
   });
 
   it('should have all commands with admin permissions', () => {

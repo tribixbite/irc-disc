@@ -391,6 +391,18 @@ Comprehensive S3 file storage management with per-guild configuration
 - `list` - Browse uploaded files with pagination support
   - Filter by folder prefix
   - Shows file sizes and last modified timestamps
+- `info` - Get detailed file information
+  - View file metadata (size, type, last modified, ETag)
+  - Display public URL for sharing
+  - Show custom S3 metadata if present
+- `rename` - Rename files in S3
+  - Updates file key/path
+  - Returns new public URL
+  - Uses copy+delete operation
+- `delete` - Delete files with confirmation
+  - Interactive button-based confirmation
+  - 60-second timeout for safety
+  - Prevents accidental deletion
 
 **Status** (`/s3 status`)
 - Display comprehensive S3 system status and configuration summary

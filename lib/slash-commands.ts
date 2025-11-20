@@ -1241,6 +1241,153 @@ async function handleS3FilesCommands(interaction: CommandInteraction, bot: Bot, 
       }
       break;
     }
+
+    case 'info': {
+      await interaction.deferReply({ ephemeral: true });
+      const key = interaction.options.getString('key', true);
+
+      try {
+        const metadata = await uploader.getObjectMetadata(key);
+        const url = await uploader.getObjectUrl(key);
+
+        const embed = new MessageEmbed()
+          .setTitle('📄 File Information')
+          .setColor('#3498db')
+          .addField('Key', key, false)
+          .addField('Size', `${(metadata.contentLength / 1024).toFixed(2)} KB (${metadata.contentLength.toLocaleString()} bytes)`, true)
+          .addField('Type', metadata.contentType || 'Unknown', true)
+          .addField('Modified', metadata.lastModified.toLocaleString(), false)
+          .addField('ETag', metadata.etag, false)
+          .addField('URL', url, false)
+          .setTimestamp();
+
+        // Add custom metadata if present
+        if (Object.keys(metadata.metadata).length > 0) {
+          const metadataStr = Object.entries(metadata.metadata)
+            .map(([k, v]) => `${k}: ${v}`)
+            .join('\n');
+          embed.addField('Custom Metadata', metadataStr, false);
+        }
+
+        await interaction.editReply({ embeds: [embed] });
+      } catch (error) {
+        await interaction.editReply({ content: `❌ Failed to get file info: ${(error as Error).message}` });
+      }
+      break;
+    }
+
+    case 'rename': {
+      await interaction.deferReply({ ephemeral: true });
+      const oldKey = interaction.options.getString('old_key', true);
+      const newKey = interaction.options.getString('new_key', true);
+
+      try {
+        await uploader.renameObject(oldKey, newKey);
+        const newUrl = await uploader.getObjectUrl(newKey);
+
+        const embed = new MessageEmbed()
+          .setTitle('✅ File Renamed')
+          .setColor('#00ff00')
+          .addField('Old Key', oldKey, false)
+          .addField('New Key', newKey, false)
+          .addField('New URL', newUrl, false)
+          .setTimestamp();
+
+        await interaction.editReply({ embeds: [embed] });
+      } catch (error) {
+        await interaction.editReply({ content: `❌ Rename failed: ${(error as Error).message}` });
+      }
+      break;
+    }
+
+    case 'delete': {
+      await interaction.deferReply({ ephemeral: true });
+      const key = interaction.options.getString('key', true);
+
+      try {
+        // Show confirmation warning
+        const embed = new MessageEmbed()
+          .setTitle('⚠️  Confirm Deletion')
+          .setColor('#ff0000')
+          .setDescription(`Are you sure you want to delete this file? **This action cannot be undone.**`)
+          .addField('File', key, false)
+          .addField('Bucket', config.bucket, true)
+          .setFooter({ text: 'Use the buttons below to confirm or cancel' });
+
+        const confirmButton = new MessageButton()
+          .setCustomId(`s3_delete_confirm_${key}`)
+          .setLabel('Delete File')
+          .setStyle('DANGER');
+
+        const cancelButton = new MessageButton()
+          .setCustomId('s3_delete_cancel')
+          .setLabel('Cancel')
+          .setStyle('SECONDARY');
+
+        const row = new MessageActionRow().addComponents(confirmButton, cancelButton);
+
+        await interaction.editReply({ embeds: [embed], components: [row] });
+
+        // Set up button collector
+        const reply = await interaction.fetchReply();
+        // Type guard: fetchReply returns Message when not ephemeral
+        if (!('createMessageComponentCollector' in reply)) {
+          await interaction.editReply({ content: '❌ Unable to create confirmation collector.', components: [] });
+          return;
+        }
+        const collector = reply.createMessageComponentCollector({
+          time: 60000, // 60 seconds
+          filter: (i) => i.user.id === interaction.user.id
+        });
+
+        collector.on('collect', async (buttonInteraction) => {
+          await buttonInteraction.deferUpdate();
+
+          if (buttonInteraction.customId === 's3_delete_cancel') {
+            const cancelEmbed = new MessageEmbed()
+              .setTitle('❌ Deletion Cancelled')
+              .setColor('#808080')
+              .setDescription('The file was not deleted.')
+              .setTimestamp();
+            await interaction.editReply({ embeds: [cancelEmbed], components: [] });
+            collector.stop();
+          } else if (buttonInteraction.customId.startsWith('s3_delete_confirm_')) {
+            try {
+              await uploader.deleteObject(key);
+              const successEmbed = new MessageEmbed()
+                .setTitle('✅ File Deleted')
+                .setColor('#00ff00')
+                .addField('Deleted', key, false)
+                .addField('Bucket', config.bucket, true)
+                .setTimestamp();
+              await interaction.editReply({ embeds: [successEmbed], components: [] });
+            } catch (deleteError) {
+              const errorEmbed = new MessageEmbed()
+                .setTitle('❌ Deletion Failed')
+                .setColor('#ff0000')
+                .setDescription((deleteError as Error).message)
+                .setTimestamp();
+              await interaction.editReply({ embeds: [errorEmbed], components: [] });
+            }
+            collector.stop();
+          }
+        });
+
+        collector.on('end', (collected, reason) => {
+          if (reason === 'time') {
+            const timeoutEmbed = new MessageEmbed()
+              .setTitle('⏱️ Confirmation Timeout')
+              .setColor('#808080')
+              .setDescription('Deletion confirmation expired. The file was not deleted.')
+              .setTimestamp();
+            interaction.editReply({ embeds: [timeoutEmbed], components: [] }).catch(() => {});
+          }
+        });
+      } catch (error) {
+        await interaction.editReply({ content: `❌ Error: ${(error as Error).message}` });
+      }
+      break;
+    }
   }
 }
 
@@ -1296,6 +1443,16 @@ export const s3Command: SlashCommand = {
         ]},
         { type: 'SUB_COMMAND', name: 'list', description: 'List files', options: [
           { type: 'STRING', name: 'prefix', description: 'Filter by prefix', required: false }
+        ]},
+        { type: 'SUB_COMMAND', name: 'info', description: 'Get file information', options: [
+          { type: 'STRING', name: 'key', description: 'File key/path in S3', required: true }
+        ]},
+        { type: 'SUB_COMMAND', name: 'rename', description: 'Rename a file', options: [
+          { type: 'STRING', name: 'old_key', description: 'Current file key/path', required: true },
+          { type: 'STRING', name: 'new_key', description: 'New file key/path', required: true }
+        ]},
+        { type: 'SUB_COMMAND', name: 'delete', description: 'Delete a file', options: [
+          { type: 'STRING', name: 'key', description: 'File key/path to delete', required: true }
         ]}
       ]},
       { type: 'SUB_COMMAND', name: 'status', description: 'Show status' }
