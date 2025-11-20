@@ -77,16 +77,16 @@ export class MetricsCollector {
     
     // Save metrics every 5 minutes
     this.saveInterval = setInterval(() => {
-      this.saveMetrics();
+      void this.saveMetrics();
     }, 5 * 60 * 1000);
-    
+
     // Clean up sliding windows every hour
     this.hourlyResetInterval = setInterval(() => {
       this.cleanupSlidingWindows();
     }, 60 * 60 * 1000);
-    
-    // Load existing metrics on startup
-    this.loadMetrics();
+
+    // Load existing metrics on startup (async, fire and forget)
+    void this.loadMetrics();
     
     logger.info('Metrics collector initialized');
   }
@@ -432,7 +432,7 @@ export class MetricsCollector {
     this.recentMessages = [];
     this.recentErrors = [];
     this.latencyWindow = [];
-    this.saveMetrics();
+    void this.saveMetrics();
   }
   
   /**
@@ -583,8 +583,8 @@ discord_irc_last_activity_seconds ${this.getTimeSinceIRCActivity() / 1000}
     }
     
     // Final save before shutdown
-    this.saveMetrics();
-    
+    void this.saveMetrics();
+
     logger.info('Metrics collector destroyed');
   }
 }

@@ -295,8 +295,8 @@ class Bot {
     if (s3Config) {
       try {
         this.s3Uploader = new S3Uploader(s3Config);
-        // Test connection on initialization
-        this.s3Uploader.testConnection().then(result => {
+        // Test connection on initialization (async, fire and forget)
+        void this.s3Uploader.testConnection().then(result => {
           if (!result.success) {
             logger.error('S3 connection test failed, disabling S3 uploads:', result.error);
             this.s3Uploader = undefined;

@@ -274,6 +274,6 @@ export class PersistenceService {
    * Destroy/cleanup method for compatibility
    */
   destroy(): void {
-    this.close();
+    void this.close();
   }
 }
