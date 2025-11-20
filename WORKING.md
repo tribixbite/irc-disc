@@ -2,6 +2,48 @@
 
 ## 🚀 Current Work (2025-11-20)
 
+### ✅ Type Safety Improvements (Round 11)
+**Date:** 2025-11-20
+**Files:** `lib/cli.ts`, `lib/metrics-server.ts`, `lib/status-notifications.ts`, `test/message-sync.test.ts`
+
+**Changes:**
+Replaced explicit `any` types with proper type annotations for improved type safety:
+
+1. **lib/cli.ts (4 any types → 0):**
+   - Changed `applyEnvironmentOverrides(config: any): any` to use `unknown` for unvalidated config
+   - Removed Zod error workarounds, properly typed with `ZodError` interface
+   - Added type assertions for nested config objects (sasl, s3)
+   - Used `Record<string, unknown>` pattern for config mutation
+
+2. **lib/metrics-server.ts (1 any type → 0):**
+   - Changed unused error parameter from `any` to `unknown`
+   - Pattern: `_error: unknown` for unused parameters
+
+3. **lib/status-notifications.ts (1 any type → 0):**
+   - Changed `loadConfig(options: any)` to `Record<string, unknown>`
+   - Added proper type assertions for nested statusNotifications access
+   - Consistently typed all config property accesses
+
+4. **test/message-sync.test.ts (2 any types → 0):**
+   - Imported `Bot` type for proper mock typing
+   - Changed mock bot from `any` to `Partial<Bot>`
+   - Fixed `persistence: null` → `undefined` for type correctness
+   - Used type assertion `as Bot` when passing to constructor
+
+**Results:**
+- Linting errors: 100 → 92 (8% reduction, 8 fewer errors)
+- `no-explicit-any` errors: 83 → 75 (8 fewer)
+- All tests passing: 233/233 ✅
+- Build successful ✅
+
+**Pattern Established:**
+- Use `unknown` for unvalidated input (better than `any`)
+- Use `Record<string, unknown>` for config objects with dynamic properties
+- Use `Partial<T>` for test mocks that implement partial interfaces
+- Add type assertions only where necessary for type narrowing
+
+**Status:** COMPLETED ✅
+
 ### ✅ Dependency Updates (Maintenance)
 **Date:** 2025-11-20
 **Files:** `package-lock.json`
