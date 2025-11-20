@@ -440,7 +440,6 @@ export class MetricsCollector {
    */
   exportPrometheusMetrics(): string {
     const summary = this.getSummary();
-    const recent = this.getRecentActivity();
     
     return `
 # HELP discord_irc_messages_total Total number of messages processed
@@ -510,15 +509,14 @@ discord_irc_last_activity_seconds ${this.getTimeSinceIRCActivity() / 1000}
   }
   
   private cleanupSlidingWindows(): void {
-    const oneHourAgo = Date.now() - (60 * 60 * 1000);
     const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
-    
+
     // Clean up hourly windows
     this.recentErrors = this.recentErrors.filter(timestamp => timestamp > oneDayAgo);
-    
+
     // Clean up daily windows
     this.recentMessages = this.recentMessages.filter(timestamp => timestamp > oneDayAgo);
-    
+
     logger.debug('Cleaned up metrics sliding windows');
   }
   
@@ -548,8 +546,6 @@ discord_irc_last_activity_seconds ${this.getTimeSinceIRCActivity() / 1000}
     try {
       // Load key metrics from persistence
       const totalMessages = await this.persistence.getMetric('total_messages');
-      const uniqueDiscord = await this.persistence.getMetric('unique_discord_users');
-      const uniqueIRC = await this.persistence.getMetric('unique_irc_users');
       const commands = await this.persistence.getMetric('commands_processed');
       const errors = await this.persistence.getMetric('errors_total');
       const uptime = await this.persistence.getMetric('uptime_start');
