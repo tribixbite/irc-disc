@@ -1,4 +1,4 @@
-# irc-disc v1.2.2 - S3 File Management & PM Command
+# irc-disc v1.2.2 - S3 File Management Complete
 
 ## 🚀 Current Work (2025-11-20)
 
@@ -1231,43 +1231,51 @@ Added `this.recoveryManager.recordSuccess()` calls at 5 locations:
 - Enabled PRAGMA journal_mode = WAL for better concurrency
 - Added `writeWithRetry()` with exponential backoff for SQLITE_BUSY errors
 
+## 📊 v1.2.2 Release Summary
+
+**Major Features:**
+
+1. **S3 Rate Limiting (Phase 4)**
+   - Token bucket algorithm: 5 uploads per 10 minutes per user
+   - Prevents abuse and controls AWS costs
+   - Applied to `/s3 files upload` and `/s3 share`
+   - Comprehensive test coverage (9 tests)
+
+2. **S3 Pagination UI (Phase 5)**
+   - Interactive "Next →" button for file listing
+   - 20 files per page with AWS continuation tokens
+   - Smooth in-place message updates
+   - Efficient navigation of large S3 buckets
+
+3. **Test Suite Improvements**
+   - Fixed 10 failing bot-events tests
+   - Resolved state pollution from database persistence
+   - All 243 tests passing (231 passed, 12 skipped)
+
+**Complete S3 Feature Set:**
+- ✅ Secure configuration with AES-256-GCM encryption
+- ✅ Full file operations: upload, list, info, rename, delete
+- ✅ One-step share workflow with image previews
+- ✅ Rate limiting for upload protection
+- ✅ Interactive pagination for large buckets
+- ✅ Support for S3-compatible services (MinIO, Spaces, etc.)
+
+**Testing:**
+- ✅ All tests passing
+- ✅ TypeScript compilation successful
+- ✅ Build verified
+
+**Status:** Version bumped to v1.2.2 ✅
+
 ## 🚀 Next Steps
 
-1. **Update package version and publish v1.1.3:**
-   ```bash
-   cd /data/data/com.termux/files/home/git/discord-irc
-   npm version patch  # Bumps to 1.1.3
-   npm run build
-   npm publish
-   ```
+**Potential Future Enhancements:**
+- Multi-file upload support
+- File search/filtering
+- Usage analytics and quotas
+- Webhook notifications for uploads
+- Automatic thumbnail generation
 
-2. **Create Git tag:**
-   ```bash
-   git tag -a v1.1.3 -m "Release v1.1.3: Security and memory improvements"
-   git push origin main --tags
-   ```
-
-3. **Production deployment with environment variables:**
-   ```bash
-   cd /data/data/com.termux/files/home/git/dirc
-   # Set secrets via environment variables (recommended)
-   export DISCORD_TOKEN="your-token-here"
-   export IRC_PASSWORD="your-password-here"
-   npx irc-disc  # Will use env vars instead of config file values
-   ```
-
-## 📊 Summary
-
-**v1.1.3 Changes:**
-- ✅ SSRF protection for webhook and S3 URLs
-- ✅ Environment variable support for all secrets
-- ✅ LRU cache prevents memory leaks in PM threads and rate limiter
-- ✅ Tested with production config at ../dirc/config.json
-- ✅ All security validations passing
-
-**v1.1.2 Changes (included):**
-- ✅ WHOIS requests disabled by default
-- ✅ False health check warnings fixed
-- ✅ Proper activity tracking for recovery manager
-
-**Status:** Ready for publication
+**Current Tasks:**
+- All S3 file management features complete
+- Ready for production deployment
