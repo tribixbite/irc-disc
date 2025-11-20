@@ -2328,3 +2328,81 @@ logger.debug(`Database cleanup completed (PM threads: ${this.cleanupPMThreadDays
 - Project now in excellent production-ready state
 
 **Commit:** 3461ada - "feat(persistence): add configurable database cleanup thresholds"
+
+## Round 21: README Database Configuration Documentation
+**Date:** 2025-11-20
+**Commit:** 8a23d8b
+
+### ✅ Database Configuration Documentation Enhancement
+**File:** `README.md`
+
+**Updates:**
+Added comprehensive documentation for the new database cleanup configuration options introduced in Round 20.
+
+**Changes Made:**
+
+1. **New Database Cleanup Configuration Subsection** (lines 794-843)
+   - Added detailed subsection under "Database & Backup"
+   - Configuration options table with ranges and defaults
+   - Cleanup behavior explanations for both data types
+   - Multiple configuration examples (long-term, aggressive, archival)
+   - Guidance on when to adjust thresholds
+
+**Content Added:**
+- **Configuration Options Table:**
+  - `dbPath`: SQLite database file path
+  - `dbCleanupPMThreadDays`: 1-365 days (default: 7)
+  - `dbCleanupChannelUsersDays`: 0.001-365 days (default: 1)
+
+- **Cleanup Behavior Explanations:**
+  - PM Thread Mappings: Discord ↔ IRC nickname mappings for private messages
+  - Channel User Lists: Cached IRC channel user lists for slash commands
+
+- **Configuration Examples:**
+  - Long-term PM retention (90 days)
+  - Aggressive channel cache cleanup (6 hours)
+  - Archival bot (1 year PM retention)
+
+- **Adjustment Guidance:**
+  - Increase PM retention for infrequent users
+  - Decrease channel cache for memory-constrained systems
+  - Decrease channel cache for high-traffic servers (10,000+ users)
+
+2. **Updated Enterprise Settings Section** (lines 221-258)
+   - Replaced Redis persistence example with actual SQLite configuration
+   - Added `dbPath`, `dbCleanupPMThreadDays`, `dbCleanupChannelUsersDays` fields
+   - Updated field description table with database options
+   - Removed outdated Redis persistence configuration
+
+3. **Environment Variables Cleanup** (line 270)
+   - Removed `REDIS_URL` environment variable (not used)
+   - Kept actual storage-related variables (S3)
+
+**Documentation Structure:**
+```
+## Database & Backup
+  ### SQLite WAL Mode
+  ### Database Cleanup Configuration  ← NEW
+    - Configuration Options
+    - Cleanup Behavior
+    - Configuration Examples
+    - When to Adjust
+```
+
+**User Benefits:**
+- Clear understanding of database cleanup behavior
+- Examples for common use cases
+- Guidance on optimization for different scenarios
+- Accurate reflection of actual implementation (SQLite, not Redis)
+- Better onboarding for new users configuring the bot
+
+**Documentation Quality:**
+- ✅ Comprehensive configuration table
+- ✅ Multiple practical examples
+- ✅ Clear use case guidance
+- ✅ Consistent with code implementation
+- ✅ Removed outdated/incorrect information
+
+**Status:** COMPLETE ✅ - Database cleanup configuration fully documented
+
+**Commit:** 8a23d8b - "docs(readme): add database cleanup configuration documentation"
