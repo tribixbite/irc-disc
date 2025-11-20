@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import Bot from '../lib/bot';
 
 describe('Private Message Configuration', () => {
@@ -58,8 +58,7 @@ describe('Private Message Configuration', () => {
     expect(bot.sanitizeNickname(longNick)).toHaveLength(80);
   });
 
-  // TODO: This test requires database initialization - convert to integration test
-  it.skip('should update PM thread mapping for nick changes', async () => {
+  it('should update PM thread mapping for nick changes', async () => {
     const config = {
       server: 'irc.test.net',
       nickname: 'testbot',
@@ -71,18 +70,24 @@ describe('Private Message Configuration', () => {
     };
 
     const bot = new Bot(config);
-    
+
     // Set up a thread mapping
     bot.pmThreads.set('oldnick', 'thread123');
-    
+
+    // Mock the persistence layer
+    bot.persistence.updatePMThreadNick = vi.fn().mockResolvedValue(undefined);
+
     // Mock the PM channel finding to return null (no actual channel)
     bot.findPmChannel = async () => null;
-    
+
     // Update nick change
     await bot.updatePmThreadForNickChange('oldnick', 'newnick');
-    
+
     // Verify mapping was updated
     expect(bot.pmThreads.has('oldnick')).toBe(false);
     expect(bot.pmThreads.get('newnick')).toBe('thread123');
+
+    // Verify persistence was called
+    expect(bot.persistence.updatePMThreadNick).toHaveBeenCalledWith('oldnick', 'newnick');
   });
 });

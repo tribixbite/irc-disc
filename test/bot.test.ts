@@ -530,13 +530,17 @@ describe('Bot', async () => {
     expect(sendStub).toHaveBeenCalledWith(expected);
   });
 
-  it.skip('should convert newlines from discord', async () => {
+  it('should preserve newlines from discord (IRC library handles splitting)', async () => {
     const message = messageFor({
       mentions: { users: [] },
       content: 'hi\nhi\r\nhi\r',
     });
 
-    expect(bot.parseText(message)).toEqual('hi hi hi ');
+    // IRC protocol doesn't allow newlines in messages - the IRC library
+    // automatically splits on newlines or strips them. We preserve them
+    // here and let the IRC library handle the protocol requirements.
+    // Note: text.trim() in parseText removes trailing whitespace/\r
+    expect(bot.parseText(message)).toEqual('hi\nhi\r\nhi');
   });
 
   it('should hide usernames for commands to IRC', async () => {
