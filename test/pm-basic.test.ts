@@ -79,7 +79,7 @@ describe('Private Message Configuration', () => {
     bot.persistence.updatePMThreadNick = mockUpdatePMThreadNick;
 
     // Mock the PM channel finding to return null (no actual channel)
-    bot.findPmChannel = async () => null;
+    bot.findPmChannel = () => Promise.resolve(null);
 
     // Update nick change
     await bot.updatePmThreadForNickChange('oldnick', 'newnick');

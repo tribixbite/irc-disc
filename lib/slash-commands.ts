@@ -3195,11 +3195,12 @@ export const ircChannelDiscoveryCommand: SlashCommand = {
           const channel = interaction.options.getString('channel', true);
           const key = interaction.options.getString('key');
           
-          // Validate channel name
-          const channelRegex = /^[#&!+][^\s,:\x07]+$/; // IRC channel name validation
+          // Validate channel name (exclude spaces, commas, colons, and control characters)
+          // eslint-disable-next-line no-control-regex
+          const channelRegex = /^[#&!+][^\s,:\x00-\x1F\x7F]+$/; // IRC channel name validation
           if (!channelRegex.test(channel)) {
-            await interaction.editReply({ 
-              content: '❌ Invalid IRC channel name. It must start with #, &, !, or + and cannot contain spaces, commas, colons, or control characters.' 
+            await interaction.editReply({
+              content: '❌ Invalid IRC channel name. It must start with #, &, !, or + and cannot contain spaces, commas, colons, or control characters.'
             });
             return;
           }
@@ -3227,11 +3228,12 @@ export const ircChannelDiscoveryCommand: SlashCommand = {
           const channel = interaction.options.getString('channel', true);
           const message = interaction.options.getString('message');
           
-          // Validate channel name
-          const channelRegex = /^[#&!+][^\s,:\x07]+$/; // IRC channel name validation
+          // Validate channel name (exclude spaces, commas, colons, and control characters)
+          // eslint-disable-next-line no-control-regex
+          const channelRegex = /^[#&!+][^\s,:\x00-\x1F\x7F]+$/; // IRC channel name validation
           if (!channelRegex.test(channel)) {
-            await interaction.editReply({ 
-              content: '❌ Invalid IRC channel name. It must start with #, &, !, or + and cannot contain spaces, commas, colons, or control characters.' 
+            await interaction.editReply({
+              content: '❌ Invalid IRC channel name. It must start with #, &, !, or + and cannot contain spaces, commas, colons, or control characters.'
             });
             return;
           }

@@ -590,7 +590,7 @@ describe('IRC Connection Monitoring', () => {
       expect(stats.lastActivity).toBeGreaterThan(0);
     });
 
-    it('should handle disconnect during activity burst', async () => {
+    it('should handle disconnect during activity burst', () => {
       bot.ircClient.emit('registered', 'Welcome');
 
       // Simulate message burst
