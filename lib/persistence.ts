@@ -1,4 +1,5 @@
 import sqlite3 from 'sqlite3';
+import crypto from 'crypto';
 import { logger } from './logger';
 
 export interface PMThreadData {
@@ -12,6 +13,54 @@ export interface ChannelUserData {
   channel: string;
   users: string[];
   lastUpdated: number;
+}
+
+export interface S3Config {
+  guildId: string;
+  bucket: string;
+  region: string;
+  endpoint?: string;
+  accessKeyId: string;
+  secretAccessKey: string; // Decrypted value (not stored)
+  keyPrefix?: string;
+  publicUrlBase?: string;
+  forcePathStyle: boolean;
+  maxFileSizeMb: number;
+  allowedRoles?: string[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+/**
+ * Encrypt a secret using AES-256-GCM
+ * @param plaintext Secret to encrypt
+ * @param key 32-byte hex-encoded encryption key from S3_CONFIG_ENCRYPTION_KEY env var
+ * @returns Encrypted string in format: iv:ciphertext:authTag
+ */
+function encryptSecret(plaintext: string, key: string): string {
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv('aes-256-gcm', Buffer.from(key, 'hex'), iv);
+  let encrypted = cipher.update(plaintext, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  const authTag = cipher.getAuthTag().toString('hex');
+  return `${iv.toString('hex')}:${encrypted}:${authTag}`;
+}
+
+/**
+ * Decrypt a secret using AES-256-GCM
+ * @param encrypted Encrypted string in format: iv:ciphertext:authTag
+ * @param key 32-byte hex-encoded encryption key from S3_CONFIG_ENCRYPTION_KEY env var
+ * @returns Decrypted plaintext secret
+ */
+function decryptSecret(encrypted: string, key: string): string {
+  const [ivHex, ciphertext, authTagHex] = encrypted.split(':');
+  const iv = Buffer.from(ivHex, 'hex');
+  const authTag = Buffer.from(authTagHex, 'hex');
+  const decipher = crypto.createDecipheriv('aes-256-gcm', Buffer.from(key, 'hex'), iv);
+  decipher.setAuthTag(authTag);
+  let decrypted = decipher.update(ciphertext, 'hex', 'utf8');
+  decrypted += decipher.final('utf8');
+  return decrypted;
 }
 
 export class PersistenceService {
@@ -113,6 +162,21 @@ export class PersistenceService {
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL,
         updated_at INTEGER DEFAULT (strftime('%s', 'now'))
+      )`,
+      `CREATE TABLE IF NOT EXISTS guild_s3_configs (
+        guild_id TEXT PRIMARY KEY,
+        bucket TEXT NOT NULL,
+        region TEXT NOT NULL,
+        endpoint TEXT,
+        access_key_id TEXT NOT NULL,
+        secret_access_key_encrypted TEXT NOT NULL,
+        key_prefix TEXT,
+        public_url_base TEXT,
+        force_path_style INTEGER DEFAULT 0,
+        max_file_size_mb INTEGER DEFAULT 25,
+        allowed_roles TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
       )`
     ];
 
@@ -335,6 +399,122 @@ export class PersistenceService {
         }
       });
     });
+  }
+
+  /**
+   * Save S3 configuration for a guild
+   * Encrypts the secret access key before storage
+   */
+  async saveS3Config(config: S3Config): Promise<void> {
+    const encryptionKey = process.env.S3_CONFIG_ENCRYPTION_KEY;
+    if (!encryptionKey) {
+      throw new Error('S3_CONFIG_ENCRYPTION_KEY environment variable not set');
+    }
+
+    const now = Date.now();
+    const encryptedSecret = encryptSecret(config.secretAccessKey, encryptionKey);
+    const allowedRolesJson = config.allowedRoles ? JSON.stringify(config.allowedRoles) : null;
+
+    return this.writeWithRetry(() => new Promise<void>((resolve, reject) => {
+      this.db.run(`
+        INSERT OR REPLACE INTO guild_s3_configs
+        (guild_id, bucket, region, endpoint, access_key_id, secret_access_key_encrypted,
+         key_prefix, public_url_base, force_path_style, max_file_size_mb, allowed_roles,
+         created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                COALESCE((SELECT created_at FROM guild_s3_configs WHERE guild_id = ?), ?), ?)
+      `, [
+        config.guildId,
+        config.bucket,
+        config.region,
+        config.endpoint || null,
+        config.accessKeyId,
+        encryptedSecret,
+        config.keyPrefix || null,
+        config.publicUrlBase || null,
+        config.forcePathStyle ? 1 : 0,
+        config.maxFileSizeMb,
+        allowedRolesJson,
+        config.guildId, // for COALESCE
+        now, // created_at if new
+        now  // updated_at always
+      ], (err) => {
+        if (err) {
+          logger.error('Failed to save S3 config:', err);
+          reject(err);
+        } else {
+          logger.debug(`Saved S3 config for guild: ${config.guildId}`);
+          resolve();
+        }
+      });
+    }));
+  }
+
+  /**
+   * Get S3 configuration for a guild
+   * Decrypts the secret access key before returning
+   */
+  async getS3Config(guildId: string): Promise<S3Config | null> {
+    const encryptionKey = process.env.S3_CONFIG_ENCRYPTION_KEY;
+    if (!encryptionKey) {
+      throw new Error('S3_CONFIG_ENCRYPTION_KEY environment variable not set');
+    }
+
+    return new Promise((resolve, reject) => {
+      this.db.get(`
+        SELECT * FROM guild_s3_configs WHERE guild_id = ?
+      `, [guildId], (err, row: any) => {
+        if (err) {
+          logger.error('Failed to get S3 config:', err);
+          reject(err);
+        } else if (!row) {
+          resolve(null);
+        } else {
+          try {
+            const secretAccessKey = decryptSecret(row.secret_access_key_encrypted, encryptionKey);
+            const allowedRoles = row.allowed_roles ? JSON.parse(row.allowed_roles) : undefined;
+
+            resolve({
+              guildId: row.guild_id,
+              bucket: row.bucket,
+              region: row.region,
+              endpoint: row.endpoint || undefined,
+              accessKeyId: row.access_key_id,
+              secretAccessKey,
+              keyPrefix: row.key_prefix || undefined,
+              publicUrlBase: row.public_url_base || undefined,
+              forcePathStyle: row.force_path_style === 1,
+              maxFileSizeMb: row.max_file_size_mb,
+              allowedRoles,
+              createdAt: row.created_at,
+              updatedAt: row.updated_at
+            });
+          } catch (decryptError) {
+            logger.error('Failed to decrypt S3 config:', decryptError);
+            reject(decryptError);
+          }
+        }
+      });
+    });
+  }
+
+  /**
+   * Delete S3 configuration for a guild
+   */
+  async deleteS3Config(guildId: string): Promise<void> {
+    return this.writeWithRetry(() => new Promise<void>((resolve, reject) => {
+      this.db.run(`
+        DELETE FROM guild_s3_configs WHERE guild_id = ?
+      `, [guildId], (err) => {
+        if (err) {
+          logger.error('Failed to delete S3 config:', err);
+          reject(err);
+        } else {
+          logger.debug(`Deleted S3 config for guild: ${guildId}`);
+          resolve();
+        }
+      });
+    }));
   }
 
   async close(): Promise<void> {

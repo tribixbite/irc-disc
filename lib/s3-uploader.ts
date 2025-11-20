@@ -1,4 +1,13 @@
-import { S3Client, PutObjectCommand, PutObjectCommandInput } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  PutObjectCommand,
+  PutObjectCommandInput,
+  ListObjectsV2Command,
+  HeadObjectCommand,
+  CopyObjectCommand,
+  DeleteObjectCommand,
+  GetObjectCommand
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { logger } from './logger';
 import crypto from 'crypto';
@@ -21,6 +30,27 @@ export interface UploadResult {
   url?: string;
   key?: string;
   error?: string;
+}
+
+export interface S3Object {
+  key: string;
+  size: number;
+  lastModified: Date;
+  etag: string;
+}
+
+export interface ListResult {
+  objects: S3Object[];
+  isTruncated: boolean;
+  nextContinuationToken?: string;
+}
+
+export interface ObjectMetadata {
+  contentType: string;
+  contentLength: number;
+  lastModified: Date;
+  etag: string;
+  metadata: Record<string, string>;
 }
 
 export class S3Uploader {
@@ -250,7 +280,7 @@ export class S3Uploader {
    */
   isSupportedFileType(filename: string): boolean {
     const ext = path.extname(filename).toLowerCase();
-    
+
     // Supported file types - primarily images but also some common file types
     const supportedTypes = [
       '.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp', '.ico', '.tiff',
@@ -258,5 +288,149 @@ export class S3Uploader {
     ];
 
     return supportedTypes.includes(ext);
+  }
+
+  /**
+   * List objects in the S3 bucket with optional prefix filtering and pagination
+   */
+  async listObjects(prefix?: string, continuationToken?: string): Promise<ListResult> {
+    try {
+      const fullPrefix = this.config.keyPrefix
+        ? (prefix ? `${this.config.keyPrefix}/${prefix}` : this.config.keyPrefix)
+        : prefix;
+
+      const command = new ListObjectsV2Command({
+        Bucket: this.config.bucket,
+        Prefix: fullPrefix,
+        MaxKeys: 20,
+        ContinuationToken: continuationToken
+      });
+
+      const response = await this.client.send(command);
+
+      const objects: S3Object[] = (response.Contents || []).map(obj => ({
+        key: obj.Key!,
+        size: obj.Size || 0,
+        lastModified: obj.LastModified || new Date(),
+        etag: obj.ETag || ''
+      }));
+
+      logger.debug(`Listed ${objects.length} objects with prefix: ${fullPrefix || '(none)'}`);
+
+      return {
+        objects,
+        isTruncated: response.IsTruncated || false,
+        nextContinuationToken: response.NextContinuationToken
+      };
+
+    } catch (error) {
+      logger.error('Failed to list S3 objects', { prefix, error: (error as Error).message });
+      throw error;
+    }
+  }
+
+  /**
+   * Get metadata for a specific object
+   */
+  async getObjectMetadata(key: string): Promise<ObjectMetadata> {
+    try {
+      const fullKey = this.config.keyPrefix ? `${this.config.keyPrefix}/${key}` : key;
+
+      const command = new HeadObjectCommand({
+        Bucket: this.config.bucket,
+        Key: fullKey
+      });
+
+      const response = await this.client.send(command);
+
+      logger.debug(`Retrieved metadata for: ${fullKey}`);
+
+      return {
+        contentType: response.ContentType || 'application/octet-stream',
+        contentLength: response.ContentLength || 0,
+        lastModified: response.LastModified || new Date(),
+        etag: response.ETag || '',
+        metadata: response.Metadata || {}
+      };
+
+    } catch (error) {
+      logger.error('Failed to get object metadata', { key, error: (error as Error).message });
+      throw error;
+    }
+  }
+
+  /**
+   * Rename an object by copying to new key and deleting old key
+   */
+  async renameObject(oldKey: string, newKey: string): Promise<void> {
+    try {
+      const fullOldKey = this.config.keyPrefix ? `${this.config.keyPrefix}/${oldKey}` : oldKey;
+      const fullNewKey = this.config.keyPrefix ? `${this.config.keyPrefix}/${newKey}` : newKey;
+
+      // Copy object to new key
+      const copyCommand = new CopyObjectCommand({
+        Bucket: this.config.bucket,
+        CopySource: `${this.config.bucket}/${fullOldKey}`,
+        Key: fullNewKey
+      });
+
+      await this.client.send(copyCommand);
+
+      // Delete old key
+      const deleteCommand = new DeleteObjectCommand({
+        Bucket: this.config.bucket,
+        Key: fullOldKey
+      });
+
+      await this.client.send(deleteCommand);
+
+      logger.info(`Renamed object: ${fullOldKey} -> ${fullNewKey}`);
+
+    } catch (error) {
+      logger.error('Failed to rename object', { oldKey, newKey, error: (error as Error).message });
+      throw error;
+    }
+  }
+
+  /**
+   * Delete an object from S3
+   */
+  async deleteObject(key: string): Promise<void> {
+    try {
+      const fullKey = this.config.keyPrefix ? `${this.config.keyPrefix}/${key}` : key;
+
+      const command = new DeleteObjectCommand({
+        Bucket: this.config.bucket,
+        Key: fullKey
+      });
+
+      await this.client.send(command);
+
+      logger.info(`Deleted object: ${fullKey}`);
+
+    } catch (error) {
+      logger.error('Failed to delete object', { key, error: (error as Error).message });
+      throw error;
+    }
+  }
+
+  /**
+   * Get a public or signed URL for an object
+   */
+  async getObjectUrl(key: string, expiresIn?: number): Promise<string> {
+    const fullKey = this.config.keyPrefix ? `${this.config.keyPrefix}/${key}` : key;
+
+    if (expiresIn) {
+      // Generate signed URL with expiration
+      const command = new GetObjectCommand({
+        Bucket: this.config.bucket,
+        Key: fullKey
+      });
+
+      return await getSignedUrl(this.client, command, { expiresIn });
+    } else {
+      // Return public URL
+      return this.generatePublicUrl(fullKey);
+    }
   }
 }
