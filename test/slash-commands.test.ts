@@ -1,44 +1,61 @@
 import { describe, it, expect } from 'vitest';
 import { slashCommands, statusCommand, usersCommand, s3Command } from '../lib/slash-commands';
 
+// Type helper for testing command data structure
+interface TestCommandOption {
+  name: string;
+  type: string;
+  description?: string;
+  options?: TestCommandOption[];
+}
+
+interface TestCommandData {
+  name: string;
+  description: string;
+  options?: TestCommandOption[];
+}
+
 describe('Slash Commands', () => {
   it('should export correct number of commands', () => {
     expect(slashCommands).toHaveLength(17);
   });
 
   it('should have proper command data structure', () => {
+    const data = statusCommand.data as unknown as TestCommandData;
     expect(statusCommand.data.name).toBe('irc-status');
-    expect((statusCommand.data as any).description).toBe('Show IRC bridge status and statistics');
+    expect(data.description).toBe('Show IRC bridge status and statistics');
     expect(typeof statusCommand.execute).toBe('function');
   });
 
   it('should have users command with proper options', () => {
+    const data = usersCommand.data as unknown as TestCommandData;
     expect(usersCommand.data.name).toBe('irc-users');
-    expect((usersCommand.data as any).options).toBeDefined();
-    expect((usersCommand.data as any).options).toHaveLength(1);
-    expect((usersCommand.data as any).options![0].name).toBe('channel');
+    expect(data.options).toBeDefined();
+    expect(data.options).toHaveLength(1);
+    expect(data.options![0].name).toBe('channel');
   });
 
   it('should have s3 command with subcommand groups', () => {
+    const data = s3Command.data as unknown as TestCommandData;
     expect(s3Command.data.name).toBe('s3');
-    expect((s3Command.data as any).description).toBe('Manage S3 file storage and uploads');
-    expect((s3Command.data as any).options).toBeDefined();
-    expect((s3Command.data as any).options).toHaveLength(4); // config group, files group, share, status
+    expect(data.description).toBe('Manage S3 file storage and uploads');
+    expect(data.options).toBeDefined();
+    expect(data.options).toHaveLength(4); // config group, files group, share, status
 
     // Check config subcommand group
-    const configGroup = (s3Command.data as any).options.find((opt: any) => opt.name === 'config');
+    const configGroup = data.options!.find((opt) => opt.name === 'config');
     expect(configGroup).toBeDefined();
-    expect(configGroup.type).toBe('SUB_COMMAND_GROUP');
-    expect(configGroup.options).toHaveLength(4); // set, view, test, remove
+    expect(configGroup!.type).toBe('SUB_COMMAND_GROUP');
+    expect(configGroup!.options).toHaveLength(4); // set, view, test, remove
 
     // Check files subcommand group
-    const filesGroup = (s3Command.data as any).options.find((opt: any) => opt.name === 'files');
+    const filesGroup = data.options!.find((opt) => opt.name === 'files');
     expect(filesGroup).toBeDefined();
-    expect(filesGroup.type).toBe('SUB_COMMAND_GROUP');
-    expect(filesGroup.options).toHaveLength(5); // upload, list, info, rename, delete
+    expect(filesGroup!.type).toBe('SUB_COMMAND_GROUP');
+    expect(filesGroup!.options).toHaveLength(5); // upload, list, info, rename, delete
 
     // Verify file operation commands exist
-    const subcommandNames = filesGroup.options.map((opt: any) => opt.name);
+    const subcommandNames = filesGroup!.options!.map((opt) => opt.name);
     expect(subcommandNames).toContain('upload');
     expect(subcommandNames).toContain('list');
     expect(subcommandNames).toContain('info');

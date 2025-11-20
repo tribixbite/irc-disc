@@ -95,12 +95,12 @@ describe('Bot Events', () => {
     bot.ircClient.emit('error', ircError);
     const mock = vi.mocked(logger.error).mock;
     // Find the Discord error log call
-    const discordCall = mock.calls.find((call: any) => call[0] === 'Received error event from Discord');
+    const discordCall = mock.calls.find((call: unknown[]) => call[0] === 'Received error event from Discord');
     expect(discordCall).toBeDefined();
     // @ts-expect-error mock call type
     expect(discordCall[1]).toEqual(discordError);
     // Find the IRC error log call (with emoji prefix)
-    const ircCall = mock.calls.find((call: any) => call[0] === '❌ Received error event from IRC');
+    const ircCall = mock.calls.find((call: unknown[]) => call[0] === '❌ Received error event from IRC');
     expect(ircCall).toBeDefined();
     // @ts-expect-error mock call type
     expect(ircCall[1]).toEqual(ircError);

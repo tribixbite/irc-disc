@@ -36,7 +36,7 @@ describe('IRC Connection Monitoring', () => {
   beforeEach(async () => {
     sendStub = vi.fn();
     sayStub = vi.fn();
-    irc.Client = ClientStub as any;
+    irc.Client = ClientStub as typeof irc.Client;
     discord.Client = createDiscordStub(sendStub) as never;
     discord.WebhookClient = createWebhookStub(sendStub) as never;
     ClientStub.prototype.send = vi.fn();
@@ -46,7 +46,7 @@ describe('IRC Connection Monitoring', () => {
 
     // Mock the DNS resolution method to prevent Bun.spawn from being called
     // This allows bot.connect() to complete successfully in test environment
-    vi.spyOn(bot as any, 'resolveViaGetent').mockResolvedValue('irc.test.server');
+    vi.spyOn(bot as Bot & { resolveViaGetent: () => Promise<string> }, 'resolveViaGetent').mockResolvedValue('irc.test.server');
 
     try {
       await bot.connect();
@@ -423,7 +423,7 @@ describe('IRC Connection Monitoring', () => {
 
       // Verify logging
       const infoLogs = vi.mocked(logger.info).mock.calls;
-      const connectLogs = infoLogs.filter((call: any) =>
+      const connectLogs = infoLogs.filter((call: unknown[]) =>
         typeof call[0] === 'string' && call[0].includes('Connected and registered to IRC')
       );
       expect(connectLogs).toHaveLength(2);
@@ -556,7 +556,7 @@ describe('IRC Connection Monitoring', () => {
 
       // Should log all connections
       const infoLogs = vi.mocked(logger.info).mock.calls;
-      const connectLogs = infoLogs.filter((call: any) =>
+      const connectLogs = infoLogs.filter((call: unknown[]) =>
         typeof call[0] === 'string' && call[0].includes('Connected and registered to IRC')
       );
       expect(connectLogs.length).toBeGreaterThanOrEqual(3);
