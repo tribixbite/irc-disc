@@ -1,10 +1,11 @@
-import { 
-  CommandInteraction, 
+import {
+  CommandInteraction,
   Permissions,
   MessageEmbed,
   MessageAttachment,
   ApplicationCommandData,
-  TextChannel
+  TextChannel,
+  ThreadChannel
 } from 'discord.js';
 import { logger } from './logger';
 import Bot from './bot';
@@ -358,6 +359,156 @@ export const pmCommand: SlashCommand = {
       await interaction.reply({ 
         content: '❌ Failed to execute PM command.', 
         ephemeral: true 
+      });
+    }
+  }
+};
+
+// Direct PM command - open or create a PM thread with an IRC user
+export const directPmCommand: SlashCommand = {
+  data: {
+    name: 'pm',
+    description: 'Open or create a PM thread with an IRC user',
+    defaultMemberPermissions: Permissions.FLAGS.ADMINISTRATOR,
+    options: [
+      {
+        name: 'nickname',
+        description: 'IRC nickname to message',
+        type: 'STRING' as const,
+        required: true,
+      },
+      {
+        name: 'message',
+        description: 'Optional message to send immediately',
+        type: 'STRING' as const,
+        required: false,
+      }
+    ]
+  },
+
+  async execute(interaction: CommandInteraction, bot: Bot) {
+    // Permission check
+    if (!hasAdminPermission(interaction)) {
+      await interaction.reply({
+        content: '❌ You need administrator permissions to use this command.',
+        ephemeral: true
+      });
+      return;
+    }
+
+    // Defer reply for potentially slow operations
+    await interaction.deferReply({ ephemeral: true });
+
+    // Get parameters
+    const nickname = interaction.options.getString('nickname', true);
+    const message = interaction.options.getString('message');
+    const normalizedNick = nickname.toLowerCase();
+
+    try {
+      // Validate PM channel is configured
+      if (!bot.pmChannelId) {
+        await interaction.editReply({
+          content: '❌ PM channel not configured. Set `privateMessages.channelId` in config.'
+        });
+        return;
+      }
+
+      // Get PM channel
+      const pmChannel = await bot.discord.channels.fetch(bot.pmChannelId);
+      if (!pmChannel || !pmChannel.isText()) {
+        await interaction.editReply({
+          content: '❌ PM channel not found or is not a text channel.'
+        });
+        return;
+      }
+
+      let thread: ThreadChannel | null = null;
+      const existingThreadId = bot.pmThreads.get(normalizedNick);
+
+      // Try to reuse existing thread
+      if (existingThreadId) {
+        try {
+          const fetched = await bot.discord.channels.fetch(existingThreadId);
+          if (fetched?.isThread()) {
+            thread = fetched as ThreadChannel;
+
+            // Unarchive if needed
+            if (thread.archived) {
+              await thread.setArchived(false);
+              logger.info(`Unarchived PM thread for ${nickname}`);
+            }
+          } else {
+            throw new Error('Channel is not a thread');
+          }
+        } catch (fetchError) {
+          // Thread was deleted - clean up stale state
+          logger.warn(`Cleaning up stale PM thread for ${nickname}:`, fetchError);
+          bot.pmThreads.delete(normalizedNick);
+          if (bot.persistence) {
+            await bot.persistence.deletePMThread(nickname);
+          }
+          // Will create new thread below
+        }
+      }
+
+      // Create new thread if needed
+      if (!thread) {
+        try {
+          thread = await (pmChannel as TextChannel).threads.create({
+            name: `${bot.pmThreadPrefix}${nickname}`,
+            autoArchiveDuration: bot.pmAutoArchive as 60 | 1440 | 4320 | 10080,
+            reason: `PM thread initiated from Discord for ${nickname}`
+          });
+
+          // Persist then cache (crash resilience)
+          if (bot.persistence) {
+            await bot.persistence.savePMThread(nickname, thread.id, bot.pmChannelId);
+          }
+          bot.pmThreads.set(normalizedNick, thread.id);
+
+          logger.info(`Created new PM thread for ${nickname}: ${thread.id}`);
+          bot.metrics.recordPMThreadCreated();
+
+        } catch (createError) {
+          logger.error(`Failed to create PM thread for ${nickname}:`, createError);
+          await interaction.editReply({
+            content: `❌ Failed to create thread: ${(createError as Error).message}`
+          });
+          return;
+        }
+      }
+
+      // Reply with thread link
+      await interaction.editReply({
+        content: `💬 PM with **${nickname}**: <#${thread.id}>`
+      });
+
+      // Handle optional initial message
+      if (message && thread) {
+        try {
+          // Send to IRC
+          bot.ircClient.say(nickname, message);
+
+          // Post in thread with attribution
+          const author = interaction.user.username;
+          await thread.send(`**<${author}>** ${message}`);
+
+          // Record metrics
+          bot.metrics.recordDiscordToIRC(interaction.user.id, nickname);
+          bot.metrics.recordPMMessage();
+
+          logger.debug(`Sent initial PM to ${nickname}: ${message.substring(0, 50)}...`);
+
+        } catch (sendError) {
+          logger.error(`Failed to send initial message to ${nickname}:`, sendError);
+          await thread.send(`⚠️ **Failed to send message to IRC:** ${(sendError as Error).message}`);
+        }
+      }
+
+    } catch (error) {
+      logger.error('Error in direct PM command:', error);
+      await interaction.editReply({
+        content: '❌ Failed to execute PM command.'
       });
     }
   }
@@ -2722,6 +2873,7 @@ export const slashCommands: SlashCommand[] = [
   statusCommand,
   usersCommand,
   pmCommand,
+  directPmCommand,
   reconnectCommand,
   rateLimitCommand,
   metricsCommand,
