@@ -1,5 +1,6 @@
 import {
   CommandInteraction,
+  ButtonInteraction,
   Permissions,
   MessageEmbed,
   MessageAttachment,
@@ -13,7 +14,7 @@ import { logger } from './logger';
 import Bot from './bot';
 import { S3Uploader } from './s3-uploader';
 import type { S3Config } from './persistence';
-import { IRCChannelUser, IRCChannelListItem } from './irc-user-manager';
+import { IRCChannelUser, IRCChannelListItem, IRCUserInfo } from './irc-user-manager';
 import { createDefaultS3RateLimiter } from './s3-rate-limiter';
 
 // Global S3 upload rate limiter (5 uploads per 10 minutes per user)
@@ -2193,7 +2194,7 @@ export const ircUserInfoCommand: SlashCommand = {
             const user1 = displayResults[i];
             const user2 = displayResults[i + 1];
             
-            const formatUser = (user: any) => {
+            const formatUser = (user: IRCUserInfo) => {
               let info = `**${user.nick}**`;
               if (user.realname) info += `\n*${user.realname}*`;
               if (user.hostname) info += `\n\`${user.hostname}\``;
@@ -2596,7 +2597,7 @@ export const ircWhoCommand: SlashCommand = {
           const user1 = displayUsers[i];
           const user2 = displayUsers[i + 1];
           
-          const formatUser = (user: any) => {
+          const formatUser = (user: IRCUserInfo) => {
             let info = `**${user.nick}**`;
             if (user.realname) info += `\n*${user.realname}*`;
             if (user.hostname) info += `\n\`${user.hostname}\``;
@@ -3389,7 +3390,7 @@ export async function handleSlashCommand(interaction: CommandInteraction, bot: B
 }
 
 // Button interaction handler
-export async function handleButtonInteraction(interaction: any, bot: Bot): Promise<void> {
+export async function handleButtonInteraction(interaction: ButtonInteraction, bot: Bot): Promise<void> {
   const customId = interaction.customId;
 
   // Handle S3 list pagination buttons
@@ -3406,7 +3407,7 @@ export async function handleButtonInteraction(interaction: any, bot: Bot): Promi
 }
 
 // Handle S3 list pagination
-async function handleS3ListPagination(interaction: any, bot: Bot): Promise<void> {
+async function handleS3ListPagination(interaction: ButtonInteraction, bot: Bot): Promise<void> {
   await interaction.deferUpdate();
 
   try {
