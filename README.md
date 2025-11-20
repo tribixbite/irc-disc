@@ -223,14 +223,9 @@ The bridge maintains comprehensive user information:
 
 ```json
 {
-  "persistence": {
-    "type": "redis",
-    "config": {
-      "host": "localhost",
-      "port": 6379,
-      "database": 0
-    }
-  },
+  "dbPath": "./discord-irc.db",
+  "dbCleanupPMThreadDays": 30,
+  "dbCleanupChannelUsersDays": 7,
   "s3": {
     "enabled": true,
     "endpoint": "https://s3.amazonaws.com",
@@ -251,6 +246,15 @@ The bridge maintains comprehensive user information:
 }
 ```
 
+| Field | Description |
+|-------|-------------|
+| `dbPath` | SQLite database file path |
+| `dbCleanupPMThreadDays` | PM thread retention (1-365 days, default: 7) |
+| `dbCleanupChannelUsersDays` | Channel user cache retention (0.001-365 days, default: 1) |
+| `metrics.enabled` | Enable Prometheus metrics endpoint |
+| `metrics.port` | Metrics server port |
+| `recovery.maxRetries` | IRC reconnection attempts before circuit breaker trips |
+
 </details>
 
 ### 🌍 Environment Variables
@@ -267,7 +271,6 @@ IRC_PORT=6697
 IRC_SECURE=true
 
 # Database & Storage
-REDIS_URL=redis://localhost:6379
 S3_BUCKET=discord-attachments
 S3_ACCESS_KEY_ID=your_access_key
 S3_SECRET_ACCESS_KEY=your_secret_key
@@ -790,6 +793,56 @@ sqlite3 discord-irc.db "PRAGMA journal_mode;"
 # Check database size and WAL file
 ls -lh discord-irc.db*
 ```
+
+### Database Cleanup Configuration
+
+The bot automatically cleans up old data from the database to prevent unbounded growth. You can configure the retention periods for different data types:
+
+**Configuration Options:**
+
+```json
+{
+  "dbPath": "./discord-irc.db",
+  "dbCleanupPMThreadDays": 7,
+  "dbCleanupChannelUsersDays": 1
+}
+```
+
+| Field | Type | Range | Default | Description |
+|-------|------|-------|---------|-------------|
+| `dbPath` | string | - | `./discord-irc.db` | Path to SQLite database file |
+| `dbCleanupPMThreadDays` | number | 1-365 | 7 | Days to keep inactive PM thread mappings |
+| `dbCleanupChannelUsersDays` | number | 0.001-365 | 1 | Days to keep channel user list cache |
+
+**Cleanup Behavior:**
+
+- **PM Thread Mappings**: Discord thread ID ↔ IRC nickname mappings for private messages
+  - Default: Removed after 7 days of inactivity
+  - Use case: Increase to 30-90 days for infrequent PM users
+
+- **Channel User Lists**: Cached IRC channel user lists for slash commands
+  - Default: Removed after 1 day to ensure freshness
+  - Use case: Reduce to 0.25 (6 hours) for high-traffic channels to save memory
+
+**Configuration Examples:**
+
+```json
+{
+  // Long-term PM retention (90 days)
+  "dbCleanupPMThreadDays": 90,
+
+  // Aggressive channel cache cleanup (6 hours)
+  "dbCleanupChannelUsersDays": 0.25,
+
+  // Archival bot (1 year PM retention)
+  "dbCleanupPMThreadDays": 365
+}
+```
+
+**When to Adjust:**
+- ⬆️ **Increase PM retention** if users have infrequent but important conversations
+- ⬇️ **Decrease channel cache** if running on memory-constrained systems
+- ⬇️ **Decrease channel cache** for high-traffic servers (10,000+ users)
 
 ---
 
