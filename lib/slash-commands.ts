@@ -1415,6 +1415,99 @@ async function handleS3StatusCommand(interaction: CommandInteraction, bot: Bot):
   await interaction.editReply({ embeds: [embed] });
 }
 
+// S3 Share command handler - Upload and share in one action
+async function handleS3ShareCommand(interaction: CommandInteraction, bot: Bot): Promise<void> {
+  await interaction.deferReply({ ephemeral: true });
+  const guildId = interaction.guildId!;
+
+  if (!bot.persistence) {
+    await interaction.editReply({ content: '❌ Database not available.' });
+    return;
+  }
+
+  const config = await bot.persistence.getS3Config(guildId);
+  if (!config) {
+    await interaction.editReply({ content: '❌ **Not Configured**\n\nUse `/s3 config set` first.' });
+    return;
+  }
+
+  const attachment = interaction.options.getAttachment('file', true);
+  const targetChannel = interaction.options.getChannel('channel') || interaction.channel;
+  const userMessage = interaction.options.getString('message') || undefined;
+  const folder = interaction.options.getString('folder') || undefined;
+
+  // Validate file size
+  if (attachment.size > config.maxFileSizeMb * 1024 * 1024) {
+    await interaction.editReply({
+      content: `❌ **File Too Large**\n\nSize: ${(attachment.size / 1024 / 1024).toFixed(2)} MB\nMax: ${config.maxFileSizeMb} MB`
+    });
+    return;
+  }
+
+  // Validate target channel is a text channel
+  if (!targetChannel || !('send' in targetChannel)) {
+    await interaction.editReply({ content: '❌ Invalid target channel. Must be a text channel.' });
+    return;
+  }
+
+  try {
+    // Upload to S3
+    const uploader = new S3Uploader({
+      region: config.region,
+      bucket: config.bucket,
+      accessKeyId: config.accessKeyId,
+      secretAccessKey: config.secretAccessKey,
+      endpoint: config.endpoint,
+      keyPrefix: config.keyPrefix,
+      publicUrlBase: config.publicUrlBase,
+      forcePathStyle: config.forcePathStyle
+    });
+
+    const response = await fetch(attachment.url);
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const filename = attachment.name || 'file';
+    const customFilename = folder ? `${folder}/${filename}` : filename;
+    const result = await uploader.uploadFile(buffer, filename, customFilename || undefined);
+
+    if (!result.success) {
+      await interaction.editReply({ content: `❌ Upload failed: ${result.error}` });
+      return;
+    }
+
+    // Build share embed
+    const shareEmbed = new MessageEmbed()
+      .setTitle(`📎 File Shared: ${filename}`)
+      .setColor('#00ff00')
+      .addField('Size', `${(attachment.size / 1024).toFixed(2)} KB`, true)
+      .addField('Type', attachment.contentType || 'Unknown', true)
+      .addField('Shared by', `<@${interaction.user.id}>`, true)
+      .addField('🔗 Download', result.url!, false)
+      .setTimestamp();
+
+    // Add user message if provided
+    if (userMessage) {
+      shareEmbed.setDescription(`*"${userMessage}"*`);
+    }
+
+    // Add image preview if it's an image
+    const isImage = attachment.contentType?.startsWith('image/');
+    if (isImage && result.url) {
+      shareEmbed.setImage(result.url);
+    }
+
+    // Send to target channel
+    await targetChannel.send({ embeds: [shareEmbed] });
+
+    // Update ephemeral reply
+    await interaction.editReply({
+      content: `✅ **File Shared Successfully**\n\nShared to: <#${targetChannel.id}>\nURL: ${result.url}`
+    });
+  } catch (error) {
+    logger.error('S3 share command error:', error);
+    await interaction.editReply({ content: `❌ Share failed: ${(error as Error).message}` });
+  }
+}
+
 // S3 management command
 export const s3Command: SlashCommand = {
   data: {
@@ -1455,6 +1548,12 @@ export const s3Command: SlashCommand = {
           { type: 'STRING', name: 'key', description: 'File key/path to delete', required: true }
         ]}
       ]},
+      { type: 'SUB_COMMAND', name: 'share', description: 'Upload and share file in channel', options: [
+        { type: 'ATTACHMENT', name: 'file', description: 'File to upload and share', required: true },
+        { type: 'CHANNEL', name: 'channel', description: 'Target channel (default: current)', required: false },
+        { type: 'STRING', name: 'message', description: 'Optional message/caption', required: false },
+        { type: 'STRING', name: 'folder', description: 'Optional S3 folder', required: false }
+      ]},
       { type: 'SUB_COMMAND', name: 'status', description: 'Show status' }
     ]
   },
@@ -1475,6 +1574,7 @@ export const s3Command: SlashCommand = {
 
       if (subcommandGroup === 'config') await handleS3ConfigCommands(interaction, bot, subcommand);
       else if (subcommandGroup === 'files') await handleS3FilesCommands(interaction, bot, subcommand);
+      else if (subcommand === 'share') await handleS3ShareCommand(interaction, bot);
       else if (subcommand === 'status') await handleS3StatusCommand(interaction, bot);
     } catch (error) {
       logger.error('S3 command error:', error);

@@ -2,6 +2,60 @@
 
 ## 🚀 Current Work (2025-11-20)
 
+### ✅ S3 Share Command (Phase 3)
+**Date:** 2025-11-20
+**Files:** `lib/slash-commands.ts`, `test/slash-commands.test.ts`, `docs/specs/S3_FILE_MANAGEMENT.md`, `README.md`
+
+**Implementation:**
+Added streamlined `/s3 share` command for upload+share in one action.
+
+**Command: `/s3 share <file> [channel] [message] [folder]`**
+
+**Features:**
+1. **One-step workflow** - Upload to S3 and share link in single command
+2. **Rich embed display:**
+   - File name, size, and content type
+   - Public download URL
+   - "Shared by @user" attribution
+   - Timestamp
+3. **Image preview** - Automatic inline preview for image files (MIME type `image/*`)
+4. **Optional caption** - User can include message/description
+5. **Target channel** - Specify destination or default to current channel
+6. **Folder organization** - Optional S3 folder prefix
+
+**Handler Implementation:**
+- Added `handleS3ShareCommand()` function (lines 1418-1509)
+- Validates S3 configuration and file size limits
+- Checks target channel is a text channel
+- Uploads file to S3 using existing uploader
+- Builds rich embed with file details
+- Conditionally adds image preview for images
+- Posts to target channel (not ephemeral)
+- Returns ephemeral confirmation to command user
+
+**Command Definition:**
+- Added as top-level `/s3 share` subcommand (lines 1551-1556)
+- Total `/s3` structure: 2 groups (config, files) + 2 commands (share, status)
+- Parameters: file (required), channel/message/folder (optional)
+
+**Testing:**
+- Updated test to verify 4 top-level options (config, files, share, status)
+- Verified share command has 4 parameters
+- All 207 tests pass ✅
+
+**Documentation:**
+- Updated S3 spec: Marked share command as complete
+- Updated README: Documented streamlined share workflow with features
+- Updated WORKING.md: This entry
+
+**Use Cases:**
+- Quick file sharing without separate upload+post steps
+- Image sharing with automatic preview
+- Document distribution with context message
+- Cross-channel file sharing
+
+**Status:** COMPLETE ✅ - Streamlined S3 share workflow available
+
 ### ✅ S3 File Operations Expansion (Phase 2.5)
 **Date:** 2025-11-20
 **Files:** `lib/slash-commands.ts`, `test/slash-commands.test.ts`, `docs/specs/S3_FILE_MANAGEMENT.md`, `README.md`

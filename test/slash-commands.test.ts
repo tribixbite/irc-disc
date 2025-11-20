@@ -23,7 +23,7 @@ describe('Slash Commands', () => {
     expect(s3Command.data.name).toBe('s3');
     expect((s3Command.data as any).description).toBe('Manage S3 file storage and uploads');
     expect((s3Command.data as any).options).toBeDefined();
-    expect((s3Command.data as any).options).toHaveLength(3); // config group, files group, status
+    expect((s3Command.data as any).options).toHaveLength(4); // config group, files group, share, status
 
     // Check config subcommand group
     const configGroup = (s3Command.data as any).options.find((opt: any) => opt.name === 'config');
@@ -37,13 +37,24 @@ describe('Slash Commands', () => {
     expect(filesGroup.type).toBe('SUB_COMMAND_GROUP');
     expect(filesGroup.options).toHaveLength(5); // upload, list, info, rename, delete
 
-    // Verify new file operation commands exist
+    // Verify file operation commands exist
     const subcommandNames = filesGroup.options.map((opt: any) => opt.name);
     expect(subcommandNames).toContain('upload');
     expect(subcommandNames).toContain('list');
     expect(subcommandNames).toContain('info');
     expect(subcommandNames).toContain('rename');
     expect(subcommandNames).toContain('delete');
+
+    // Check share subcommand
+    const shareCommand = (s3Command.data as any).options.find((opt: any) => opt.name === 'share');
+    expect(shareCommand).toBeDefined();
+    expect(shareCommand.type).toBe('SUB_COMMAND');
+    expect(shareCommand.options).toHaveLength(4); // file, channel, message, folder
+
+    // Check status subcommand
+    const statusCommand = (s3Command.data as any).options.find((opt: any) => opt.name === 'status');
+    expect(statusCommand).toBeDefined();
+    expect(statusCommand.type).toBe('SUB_COMMAND');
   });
 
   it('should have all commands with admin permissions', () => {

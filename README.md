@@ -404,6 +404,15 @@ Comprehensive S3 file storage management with per-guild configuration
   - 60-second timeout for safety
   - Prevents accidental deletion
 
+**Share** (`/s3 share`)
+- Upload and share files in one streamlined action
+  - Upload file to S3
+  - Post rich embed with file details in target channel
+  - Automatic image preview for image files
+  - Optional message/caption support
+  - Target channel selection (defaults to current channel)
+  - Optional folder organization
+
 **Status** (`/s3 status`)
 - Display comprehensive S3 system status and configuration summary
 
