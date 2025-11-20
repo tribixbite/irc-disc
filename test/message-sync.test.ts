@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MessageSynchronizer } from '../lib/message-sync';
-import Bot from '../lib/bot';
 
 // Mock bot for testing
 const createMockBot = () => {

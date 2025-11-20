@@ -2,6 +2,34 @@
 
 ## 🚀 Current Work (2025-11-20)
 
+### ✅ ESLint Configuration and Unused Imports (Round 6)
+**Date:** 2025-11-20
+**Files:** `eslint.config.js`, `test/message-sync.test.ts`, `test/metrics.test.ts`
+
+**Improvements:**
+1. **Configured ESLint to ignore underscore-prefixed unused vars** (eslint.config.js)
+   - Added rule: `@typescript-eslint/no-unused-vars` with `argsIgnorePattern: '^_'`
+   - Now properly ignores `_reason`, `_channels`, `_error`, `_reject`, etc.
+   - Aligns with TypeScript convention for intentionally unused parameters
+
+2. **Removed unused imports** (test files)
+   - message-sync.test.ts: Removed unused `Bot` import
+   - metrics.test.ts: Removed unused `vi` import
+   - Tests create mocks instead of using actual imports
+
+**Testing:**
+- ✅ All 233 tests passing
+- ✅ Build successful
+- ✅ No regressions
+
+**Results:**
+- Reduced linting errors from 159 to 150 (9 fewer problems, 5.7% reduction)
+- Total session reduction: 28 problems (15.7% reduction from 178 start)
+- Cleaner ESLint configuration following TypeScript conventions
+- No more false positives for intentionally unused parameters
+
+**Status:** COMPLETED ✅
+
 ### ✅ Enable Remaining Skipped Tests (Round 5)
 **Date:** 2025-11-20
 **Files:** `test/bot.test.ts`, `test/pm-basic.test.ts`
@@ -1503,10 +1531,11 @@ Added `this.recoveryManager.recordSuccess()` calls at 5 locations:
 - **Round 3**: ESLint auto-fix + removed unused imports/variables (18 issues)
 - **Round 4**: Removed 10 dead skipped tests (~650 lines of dead code)
 - **Round 5**: Fixed 2 remaining skipped tests (100% test suite enabled)
-- **Total Fixed**: 31 linting issues + 10 dead tests + 2 skipped tests
-- **Linting Progress**: 178 → 158 problems (11.2% reduction)
+- **Round 6**: ESLint config + removed unused imports (9 issues)
+- **Total Fixed**: 40 linting issues + 10 dead tests + 2 skipped tests
+- **Linting Progress**: 178 → 150 problems (15.7% reduction, 28 fewer errors)
 - **Test Progress**: 243 tests (12 skipped) → 233 tests (0 skipped, all passing)
-- **Commits**: 5 commits (fe7efaa, 1e5cb23, 24463ee, 3a068c3, 48678a8 + pending)
+- **Commits**: 6 commits (fe7efaa, 1e5cb23, 24463ee, 3a068c3, 48678a8, 5322022 + pending)
 - **Tests**: All 233 tests passing, 100% enabled
 
 **Remaining Linting Issues (158 total):**
