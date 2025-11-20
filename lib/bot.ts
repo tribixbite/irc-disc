@@ -195,8 +195,12 @@ class Bot {
     this.nickname = options.nickname;
     this.ircOptions = options.ircOptions;
     
-    // Initialize persistence service
-    this.persistence = new PersistenceService(options.dbPath as string);
+    // Initialize persistence service with configurable cleanup thresholds
+    this.persistence = new PersistenceService(
+      options.dbPath as string,
+      options.dbCleanupPMThreadDays as number | undefined,
+      options.dbCleanupChannelUsersDays as number | undefined
+    );
     this.discordToken = options.discordToken;
     this.commandCharacters = (options.commandCharacters as string[]) || [];
     this.ircNickColor = options.ircNickColor !== false; // default to true

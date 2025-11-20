@@ -112,9 +112,17 @@ function decryptSecret(encrypted: string, key: string): string {
 export class PersistenceService {
   private db!: sqlite3.Database;
   private dbPath: string;
+  private cleanupPMThreadDays: number;
+  private cleanupChannelUsersDays: number;
 
-  constructor(dbPath: string = './discord-irc.db') {
+  constructor(
+    dbPath: string = './discord-irc.db',
+    cleanupPMThreadDays: number = 7,
+    cleanupChannelUsersDays: number = 1
+  ) {
     this.dbPath = dbPath;
+    this.cleanupPMThreadDays = cleanupPMThreadDays;
+    this.cleanupChannelUsersDays = cleanupChannelUsersDays;
   }
 
   async initialize(): Promise<void> {
@@ -578,14 +586,14 @@ export class PersistenceService {
   }
 
   async cleanup(): Promise<void> {
-    const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
-    const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+    const pmThreadCutoff = Date.now() - (this.cleanupPMThreadDays * 24 * 60 * 60 * 1000);
+    const channelUsersCutoff = Date.now() - (this.cleanupChannelUsersDays * 24 * 60 * 60 * 1000);
 
     const queries = [
-      // Clean up old PM threads (inactive for more than 7 days)
-      { sql: 'DELETE FROM pm_threads WHERE last_activity < ?', params: [sevenDaysAgo] },
-      // Clean up old channel user data (older than 1 day)
-      { sql: 'DELETE FROM channel_users WHERE last_updated < ?', params: [oneDayAgo] }
+      // Clean up old PM threads (inactive for more than configured days)
+      { sql: 'DELETE FROM pm_threads WHERE last_activity < ?', params: [pmThreadCutoff] },
+      // Clean up old channel user data (older than configured days)
+      { sql: 'DELETE FROM channel_users WHERE last_updated < ?', params: [channelUsersCutoff] }
     ];
 
     for (const query of queries) {
@@ -601,6 +609,6 @@ export class PersistenceService {
       }));
     }
 
-    logger.debug('Database cleanup completed');
+    logger.debug(`Database cleanup completed (PM threads: ${this.cleanupPMThreadDays}d, Channel users: ${this.cleanupChannelUsersDays}d)`);
   }
 }

@@ -22,9 +22,17 @@ export interface ChannelUserData {
 export class PersistenceService {
   private db!: Database;
   private dbPath: string;
+  private cleanupPMThreadDays: number;
+  private cleanupChannelUsersDays: number;
 
-  constructor(dbPath: string = './discord-irc.db') {
+  constructor(
+    dbPath: string = './discord-irc.db',
+    cleanupPMThreadDays: number = 7,
+    cleanupChannelUsersDays: number = 1
+  ) {
     this.dbPath = dbPath;
+    this.cleanupPMThreadDays = cleanupPMThreadDays;
+    this.cleanupChannelUsersDays = cleanupChannelUsersDays;
   }
 
   async initialize(): Promise<void> {
@@ -258,19 +266,19 @@ export class PersistenceService {
 
   /**
    * Cleanup old data from the database
-   * - Removes PM threads inactive for more than 7 days
-   * - Removes channel user data older than 1 day
+   * - Removes PM threads inactive for more than configured days (default: 7 days)
+   * - Removes channel user data older than configured days (default: 1 day)
    */
   // eslint-disable-next-line @typescript-eslint/require-await
   async cleanup(): Promise<void> {
-    const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
-    const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+    const pmThreadCutoff = Date.now() - (this.cleanupPMThreadDays * 24 * 60 * 60 * 1000);
+    const channelUsersCutoff = Date.now() - (this.cleanupChannelUsersDays * 24 * 60 * 60 * 1000);
 
     // Bun's synchronous API wrapped for API compatibility
-    this.db.run('DELETE FROM pm_threads WHERE last_activity < ?', [sevenDaysAgo]);
-    this.db.run('DELETE FROM channel_users WHERE last_updated < ?', [oneDayAgo]);
+    this.db.run('DELETE FROM pm_threads WHERE last_activity < ?', [pmThreadCutoff]);
+    this.db.run('DELETE FROM channel_users WHERE last_updated < ?', [channelUsersCutoff]);
 
-    logger.debug('Database cleanup completed');
+    logger.debug(`Database cleanup completed (PM threads: ${this.cleanupPMThreadDays}d, Channel users: ${this.cleanupChannelUsersDays}d)`);
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await

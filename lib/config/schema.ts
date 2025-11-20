@@ -204,6 +204,8 @@ export const configSchema = z.object({
 
   // Persistence
   dbPath: z.string().optional(),
+  dbCleanupPMThreadDays: z.number().min(1).max(365).optional(), // Days to keep inactive PM threads (default: 7)
+  dbCleanupChannelUsersDays: z.number().min(0.001).max(365).optional(), // Days to keep channel user data (default: 1)
 
   // Logging
   logLevel: z.enum(['error', 'warn', 'info', 'debug']).optional()
