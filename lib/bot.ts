@@ -338,7 +338,7 @@ class Bot {
       // ping output includes the resolved IP in parentheses: "PING irc.libera.chat (103.196.37.95)"
       const proc = Bun.spawn(['ping', '-c', '1', hostname]);
       const rawOutput = await new Response(proc.stdout).text();
-      const exitCode = await proc.exited;
+      void await proc.exited; // Wait for process to exit, but don't need exit code
 
       // Extract IP from ping output using regex
       // Match pattern like: PING hostname (IP) or PING IP (IP)
@@ -1647,7 +1647,7 @@ class Bot {
     const { guild } = discordChannel;
     
     // Process @username#discriminator mentions and emoji/channel references first
-    let processedText = withFormat
+    const processedText = withFormat
       // @ts-expect-error TS doesn't seem to see the valid overload of replace here?
       .replace(/@([^\s#]+)#(\d+)/g, (match, username, discriminator) => {
         // @username#1234 => mention
