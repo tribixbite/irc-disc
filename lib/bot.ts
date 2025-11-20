@@ -1984,9 +1984,10 @@ class Bot {
     return nickname.replace(/[<>@#&!]/g, '_').substring(0, 80);
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async findPmChannel(): Promise<BaseGuildTextChannel | null> {
     if (!this.pmChannelId) return null;
-    
+
     // Try to find by ID first
     if (this.discord.channels.cache.has(this.pmChannelId)) {
       const channel = this.discord.channels.cache.get(this.pmChannelId);
@@ -1994,7 +1995,7 @@ class Bot {
         return channel;
       }
     }
-    
+
     // Try to find by name (if pmChannelId starts with #)
     if (this.pmChannelId.startsWith('#')) {
       const channelName = this.pmChannelId.slice(1);
@@ -2004,10 +2005,10 @@ class Bot {
           (c as BaseGuildTextChannel).name === channelName
         )
         .first() as BaseGuildTextChannel | undefined;
-      
+
       if (channel) return channel;
     }
-    
+
     return null;
   }
 

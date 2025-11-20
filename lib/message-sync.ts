@@ -139,6 +139,7 @@ export class MessageSynchronizer {
    * If delete arrives before recordMessage() is called, the delete notification will
    * be silently dropped. This is acceptable given the rarity of such timing.
    */
+  // eslint-disable-next-line @typescript-eslint/require-await
   async handleMessageDelete(message: Message | PartialMessage): Promise<void> {
     try {
       if (!message.id) return;
@@ -189,6 +190,7 @@ export class MessageSynchronizer {
   /**
    * Handle bulk message deletion (Discord purge)
    */
+  // eslint-disable-next-line @typescript-eslint/require-await
   async handleBulkDelete(messages: ReadonlyMap<string, Message | PartialMessage>): Promise<void> {
     try {
       const deletedCount = messages.size;

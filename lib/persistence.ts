@@ -39,20 +39,23 @@ interface PMThreadRow {
   last_activity: number;
 }
 
-interface ChannelUsersRow {
+// Reserved for future use - database row type for channel users table
+interface _ChannelUsersRow {
   channel: string;
   users_json: string;
   last_updated: number;
 }
 
-interface MessageMappingRow {
+// Reserved for future use - database row type for message mapping table
+interface _MessageMappingRow {
   discord_id: string;
   irc_channel: string;
   irc_nick: string;
   timestamp: number;
 }
 
-interface MetricRow {
+// Reserved for future use - database row type for metrics table
+interface _MetricRow {
   name: string;
   value: string;
   timestamp: number;
