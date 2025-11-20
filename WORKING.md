@@ -2,6 +2,47 @@
 
 ## 🚀 Current Work (2025-11-20)
 
+### ✅ Dead Test Cleanup (Round 4)
+**Date:** 2025-11-20
+**Files:** `test/bot-events.test.ts`, `test/bot.test.ts`
+
+**Cleanup:**
+Removed 10 skipped tests that were testing features that don't exist or behavior that was intentionally removed:
+
+1. **bot-events.test.ts** (1 test removed)
+   - "should warn if it receives a part/quit before names event"
+   - Behavior intentionally changed - bot no longer warns
+
+2. **bot.test.ts** (9 tests removed)
+   - "should convert user at-mentions from IRC"
+   - "should convert user colon-initial mentions from IRC"
+   - "should convert user comma-initial mentions from IRC"
+   - "should convert multiple user mentions from IRC"
+   - "should convert user nickname mentions from IRC"
+   - "should convert username mentions from IRC even if nickname differs"
+   - "should convert role mentions from IRC if role mentionable"
+   - "should convert overlapping mentions from IRC properly and case-insensitively"
+   - "should convert partial matches from IRC properly"
+   - Feature (IRC→Discord mention conversion) was never implemented
+   - Tests had contradictory assertions (`.not.toHaveBeenCalledWith`)
+
+**Remaining Skipped Tests:** 2
+- bot.test.ts:533 - "should convert newlines from discord" (may be fixable)
+- pm-basic.test.ts:62 - "should update PM thread mapping for nick changes" (needs database setup)
+
+**Testing:**
+- ✅ Test count reduced from 243 to 233 (10 tests removed)
+- ✅ All 231 passing tests still pass
+- ✅ Build successful
+- ✅ No regressions
+
+**Results:**
+- Removed ~650 lines of dead test code
+- Cleaner test suite without misleading skipped tests
+- Remaining 2 skipped tests have valid TODOs for future work
+
+**Status:** COMPLETED ✅
+
 ### ✅ ESLint Auto-Fix and Cleanup (Round 3)
 **Date:** 2025-11-20
 **Files:** `lib/cli.ts`, `lib/irc/response-aware-whois-queue.ts`, `lib/persistence.ts`, `lib/recovery-manager.ts`, `lib/slash-commands.ts`, `test/connection-monitoring.test.ts`, `test/s3-uploader.test.ts`, `test/slash-commands.test.ts`

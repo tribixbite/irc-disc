@@ -475,39 +475,6 @@ describe('Bot', async () => {
     expect(bot.parseText(message)).toEqual(':in_love:');
   });
 
-  it.skip('should convert user at-mentions from IRC', async () => {
-    const testUser = addUser({ username: 'testuser', id: '123' });
-
-    const username = 'ircuser';
-    const text = 'Hello, @testuser!';
-    const expected = `**<${username}>** Hello, <@${testUser.id}>!`;
-
-    await bot.sendToDiscord(username, '#irc', text);
-    expect(sendStub).not.toHaveBeenCalledWith(expected);
-  });
-
-  it.skip('should convert user colon-initial mentions from IRC', async () => {
-    const testUser = addUser({ username: 'testuser', id: '123' });
-
-    const username = 'ircuser';
-    const text = 'testuser: hello!';
-    const expected = `**<${username}>** <@${testUser.id}> hello!`;
-
-    await bot.sendToDiscord(username, '#irc', text);
-    expect(sendStub).not.toHaveBeenCalledWith(expected);
-  });
-
-  it.skip('should convert user comma-initial mentions from IRC', async () => {
-    const testUser = addUser({ username: 'testuser', id: '123' });
-
-    const username = 'ircuser';
-    const text = 'testuser, hello!';
-    const expected = `**<${username}>** <@${testUser.id}> hello!`;
-
-    await bot.sendToDiscord(username, '#irc', text);
-    expect(sendStub).not.toHaveBeenCalledWith(expected);
-  });
-
   it('should not convert user initial mentions from IRC mid-message', async () => {
     addUser({ username: 'testuser', id: '123' });
 
@@ -532,21 +499,6 @@ describe('Bot', async () => {
     const username = 'ircuser';
     const text = 'Agreed, see you then.';
     const expected = `**<${username}>** Agreed, see you then.`;
-
-    await bot.sendToDiscord(username, '#irc', text);
-    expect(sendStub).toHaveBeenCalledWith(expected);
-  });
-
-  it.skip('should convert multiple user mentions from IRC', async () => {
-    const testUser = addUser({ username: 'testuser', id: '123' });
-    const anotherUser = addUser({ username: 'anotheruser', id: '124' });
-
-    const username = 'ircuser';
-    const text =
-      'Hello, @testuser and @anotheruser, was our meeting scheduled @5pm?';
-    const expected =
-      `**<${username}>** Hello, <@${testUser.id}> and <@${anotherUser.id}>,` +
-      ' was our meeting scheduled @5pm?';
 
     await bot.sendToDiscord(username, '#irc', text);
     expect(sendStub).toHaveBeenCalledWith(expected);
@@ -670,36 +622,6 @@ describe('Bot', async () => {
     expect(sayMock).toHaveBeenCalledWith('#irc', expected);
   });
 
-  it.skip('should convert user nickname mentions from IRC', async () => {
-    const testUser = addUser({
-      username: 'testuser',
-      id: '123',
-      nickname: 'somenickname',
-    });
-
-    const username = 'ircuser';
-    const text = 'Hello, @somenickname!';
-    const expected = `**<${username}>** Hello, ${testUser}!`;
-
-    await bot.sendToDiscord(username, '#irc', text);
-    expect(sendStub).not.toHaveBeenCalledWith(expected);
-  });
-
-  it.skip('should convert username mentions from IRC even if nickname differs', async () => {
-    const testUser = addUser({
-      username: 'testuser',
-      id: '123',
-      nickname: 'somenickname',
-    });
-
-    const username = 'ircuser';
-    const text = 'Hello, @testuser!';
-    const expected = `**<${username}>** Hello, ${testUser}!`;
-
-    await bot.sendToDiscord(username, '#irc', text);
-    expect(sendStub).not.toHaveBeenCalledWith(expected);
-  });
-
   it('should convert username-discriminator mentions from IRC properly', async () => {
     const user1 = addUser({
       username: 'user',
@@ -761,21 +683,6 @@ describe('Bot', async () => {
     expect(bot.parseText(message)).toEqual('@deleted-role');
   });
 
-  it.skip('should convert role mentions from IRC if role mentionable', async () => {
-    const testRole = addRole({
-      name: 'example-role',
-      id: '12345',
-      mentionable: true,
-    });
-
-    const username = 'ircuser';
-    const text = 'Hello, @example-role!';
-    const expected = `**<${username}>** Hello, <@&${testRole.id}>!`;
-
-    await bot.sendToDiscord(username, '#irc', text);
-    expect(sendStub).not.toHaveBeenCalledWith(expected);
-  });
-
   it('should not convert role mentions from IRC if role not mentionable', async () => {
     addRole({ name: 'example-role', id: '12345', mentionable: false });
 
@@ -785,57 +692,6 @@ describe('Bot', async () => {
 
     await bot.sendToDiscord(username, '#irc', text);
     expect(sendStub).toHaveBeenCalledWith(expected);
-  });
-
-  it.skip('should convert overlapping mentions from IRC properly and case-insensitively', async () => {
-    const user = addUser({ username: 'user', id: '111' });
-    const nickUser = addUser({
-      username: 'user2',
-      id: '112',
-      nickname: 'userTest',
-    });
-    const nickUserCase = addUser({
-      username: 'user3',
-      id: '113',
-      nickname: 'userTEST',
-    });
-    const role = addRole({
-      name: 'userTestRole',
-      id: '12345',
-      mentionable: true,
-    });
-
-    const username = 'ircuser';
-    const text =
-      'hello @User, @user, @userTest, @userTEST, @userTestRole and @usertestrole';
-    const expected = `**<${username}>** hello ${user}, ${user}, ${nickUser}, ${nickUserCase}, ${role} and ${role}`;
-
-    await bot.sendToDiscord(username, '#irc', text);
-    expect(sendStub).not.toHaveBeenCalledWith(expected);
-  });
-
-  it.skip('should convert partial matches from IRC properly', async () => {
-    const user = addUser({ username: 'user', id: '111' });
-    const longUser = addUser({ username: 'user-punc', id: '112' });
-    const nickUser = addUser({
-      username: 'user2',
-      id: '113',
-      nickname: 'nick',
-    });
-    const nickUserCase = addUser({
-      username: 'user3',
-      id: '114',
-      nickname: 'NiCK',
-    });
-    const role = addRole({ name: 'role', id: '12345', mentionable: true });
-
-    const username = 'ircuser';
-    const text =
-      "@user-ific @usermore, @user's friend @user-punc, @nicks and @NiCKs @roles";
-    const expected = `**<${username}>** ${user}-ific ${user}more, ${user}'s friend ${longUser}, ${nickUser}s and ${nickUserCase}s ${role}s`;
-
-    await bot.sendToDiscord(username, '#irc', text);
-    expect(sendStub).not.toHaveBeenCalledWith(expected);
   });
 
   it('should successfully send messages with default config', async () => {

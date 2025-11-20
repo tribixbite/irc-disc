@@ -402,28 +402,6 @@ describe('Bot Events', () => {
     expect(bot.sendExactToDiscord).not.toHaveBeenCalled();
   });
 
-  // TODO: behavior changed - bot no longer warns about part/quit before names
-  it.skip('should warn if it receives a part/quit before a names event', async () => {
-    const bot = createBot({ ...config, ircStatusNotices: true });
-    await bot.connect();
-    await waitForIRCClient(); // Wait for IRC client initialization
-    // Wait for setImmediate callback that initializes IRC client
-    await new Promise(resolve => setImmediate(resolve));
-    const channel = '#channel';
-    const reason = 'Leaving';
-
-    bot.ircClient.emit('part', channel, 'user1', reason);
-    bot.ircClient.emit('quit', 'user2', reason, [channel]);
-    expect(logger.warn).toHaveBeenCalledTimes(2);
-    const mock = vi.mocked(logger.warn).mock;
-    expect(mock.calls[0]).toEqual([
-      `No channelUsers found for ${channel} when user1 parted.`,
-    ]);
-    expect(mock.calls[1]).toEqual([
-      `No channelUsers found for ${channel} when user2 quit, ignoring.`,
-    ]);
-  });
-
   it('should not crash if it uses a different name from config', async () => {
     // this can happen when a user with the same name is already connected
     const bot = createBot({ ...config, nickname: 'testbot' });
