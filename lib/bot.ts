@@ -16,7 +16,6 @@ import { formatFromDiscordToIRC, formatFromIRCToDiscord } from './formatting';
 import { PersistenceService } from './persistence-wrapper.js';
 import { registerSlashCommands, handleSlashCommand } from './slash-commands';
 import { MessageSynchronizer } from './message-sync';
-import { RateLimiter, RateLimitConfig } from './rate-limiter';
 import { MetricsCollector } from './metrics';
 import { MetricsServer } from './metrics-server';
 import { RecoveryManager, RecoveryConfig } from './recovery-manager';
@@ -24,6 +23,7 @@ import { S3Uploader, S3Config } from './s3-uploader';
 import { MentionDetector, MentionConfig } from './mention-detector';
 import { StatusNotificationManager } from './status-notifications';
 import { IRCUserManager } from './irc-user-manager';
+import { RateLimiter, RateLimitConfig } from './rate-limiter';
 
 // CRITICAL DIAGNOSTIC: Catch all unhandled promise rejections
 // A silent rejection could put the process in a zombie state
@@ -112,15 +112,15 @@ class Bot {
   
   // Message synchronization
   messageSync: MessageSynchronizer;
-  
-  // Rate limiting
-  rateLimiter: RateLimiter;
-  
+
   // Metrics collection
   metrics: MetricsCollector;
-  
+
   // Metrics HTTP server
   metricsServer?: MetricsServer;
+
+  // Rate limiting for message spam protection
+  rateLimiter: RateLimiter;
   
   // Error recovery and reconnection
   recoveryManager: RecoveryManager;
@@ -260,11 +260,7 @@ class Bot {
     
     // Initialize message synchronization
     this.messageSync = new MessageSynchronizer(this);
-    
-    // Initialize rate limiting
-    const rateLimitConfig = options.rateLimiting as Partial<RateLimitConfig> || {};
-    this.rateLimiter = new RateLimiter(rateLimitConfig);
-    
+
     // Initialize metrics collection
     try {
       this.metrics = new MetricsCollector(this.persistence);
@@ -272,7 +268,11 @@ class Bot {
       logger.warn('Failed to initialize metrics with persistence, using in-memory metrics:', error);
       this.metrics = new MetricsCollector(null);
     }
-    
+
+    // Initialize rate limiter for message spam protection
+    const rateLimitConfig: Partial<RateLimitConfig> = options.rateLimitConfig || {};
+    this.rateLimiter = new RateLimiter(rateLimitConfig);
+
     // Initialize metrics HTTP server (optional, disabled by default)
     const metricsPort = options.metricsPort as number;
     if (metricsPort) {

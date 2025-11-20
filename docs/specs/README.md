@@ -6,8 +6,8 @@ This directory contains detailed specifications for new features and architectur
 
 | Spec | Status | Description |
 |------|--------|-------------|
-| [IRC_PM_START_COMMAND.md](./IRC_PM_START_COMMAND.md) | Completed | Add `/pm` to initiate PMs from Discord |
-| [S3_FILE_MANAGEMENT.md](./S3_FILE_MANAGEMENT.md) | In Progress | Comprehensive S3 file management via slash commands |
+| [IRC_PM_START_COMMAND.md](./IRC_PM_START_COMMAND.md) | ✅ Completed | Add `/pm` to initiate PMs from Discord |
+| [S3_FILE_MANAGEMENT.md](./S3_FILE_MANAGEMENT.md) | ✅ Completed | Comprehensive S3 file management via slash commands |
 
 ## Spec Template
 

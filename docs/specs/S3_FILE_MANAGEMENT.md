@@ -18,7 +18,7 @@
 - ✅ File info command with metadata display
 - ✅ File rename with copy+delete operation
 - ✅ File delete with interactive confirmation (60s timeout)
-- ⏳ Rate limiting for uploads - deferred
+- ✅ Rate limiting for uploads (5 uploads per 10 minutes per user)
 - ⏳ Pagination UI with buttons - deferred
 
 **Implementation Complete**: Full S3 file management with streamlined share workflow. Images display inline preview. Future enhancements marked as deferred can be added incrementally.
@@ -432,10 +432,10 @@ async deleteS3Config(guildId: string): Promise<void>
 ## Testing Plan
 
 ### Unit Tests
-- [ ] Encryption/decryption functions
-- [ ] S3Uploader new methods
-- [ ] Permission checks
-- [ ] Rate limiting logic
+- [x] Encryption/decryption functions
+- [x] S3Uploader new methods
+- [x] Permission checks
+- [x] Rate limiting logic
 
 ### Integration Tests
 - [ ] Config modal flow

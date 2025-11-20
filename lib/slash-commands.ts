@@ -14,6 +14,10 @@ import Bot from './bot';
 import { S3Uploader } from './s3-uploader';
 import type { S3Config } from './persistence';
 import { IRCChannelUser, IRCChannelListItem } from './irc-user-manager';
+import { createDefaultS3RateLimiter } from './s3-rate-limiter';
+
+// Global S3 upload rate limiter (5 uploads per 10 minutes per user)
+const s3RateLimiter = createDefaultS3RateLimiter();
 
 export interface SlashCommand {
   data: ApplicationCommandData;
@@ -1184,6 +1188,16 @@ async function handleS3FilesCommands(interaction: CommandInteraction, bot: Bot, 
   switch (subcommand) {
     case 'upload': {
       await interaction.deferReply({ ephemeral: true });
+
+      // Check rate limit
+      const rateLimit = s3RateLimiter.checkLimit(interaction.user.id);
+      if (!rateLimit.allowed) {
+        await interaction.editReply({
+          content: `⏱️ **Rate Limit Exceeded**\n\nPlease wait ${rateLimit.retryAfter} seconds before uploading again.\n\nLimit: 5 uploads per 10 minutes`
+        });
+        return;
+      }
+
       const attachment = interaction.options.getAttachment('file', true);
       const folder = interaction.options.getString('folder') || undefined;
 
@@ -1428,6 +1442,15 @@ async function handleS3ShareCommand(interaction: CommandInteraction, bot: Bot): 
   const config = await bot.persistence.getS3Config(guildId);
   if (!config) {
     await interaction.editReply({ content: '❌ **Not Configured**\n\nUse `/s3 config set` first.' });
+    return;
+  }
+
+  // Check rate limit
+  const rateLimit = s3RateLimiter.checkLimit(interaction.user.id);
+  if (!rateLimit.allowed) {
+    await interaction.editReply({
+      content: `⏱️ **Rate Limit Exceeded**\n\nPlease wait ${rateLimit.retryAfter} seconds before sharing again.\n\nLimit: 5 uploads per 10 minutes`
+    });
     return;
   }
 
