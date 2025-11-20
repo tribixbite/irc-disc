@@ -54,6 +54,7 @@ export class PersistenceService {
    * Bun's Database API is synchronous and doesn't have SQLITE_BUSY issues
    * like the async sqlite3 library, so this is a simple wrapper for API compatibility
    */
+  // eslint-disable-next-line @typescript-eslint/require-await
   private async writeWithRetry<T>(
     operation: () => T,
     _maxRetries: number = 5,
@@ -63,6 +64,7 @@ export class PersistenceService {
     return operation();
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   private async createTables(): Promise<void> {
     const queries = [
       `CREATE TABLE IF NOT EXISTS pm_threads (
@@ -105,6 +107,7 @@ export class PersistenceService {
     });
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async getPMThread(ircNick: string): Promise<PMThreadData | null> {
     const row = this.db.query<PMThreadData, [string]>(
       'SELECT irc_nick as ircNick, thread_id as threadId, channel_id as channelId, last_activity as lastActivity FROM pm_threads WHERE irc_nick = ?'
@@ -113,6 +116,7 @@ export class PersistenceService {
     return row || null;
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async getAllPMThreads(): Promise<Map<string, string>> {
     const rows = this.db.query<{ ircNick: string; threadId: string }, []>(
       'SELECT irc_nick as ircNick, thread_id as threadId FROM pm_threads'
@@ -145,6 +149,7 @@ export class PersistenceService {
     });
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async getChannelUsers(channel: string): Promise<string[] | null> {
     const row = this.db.query<{ users: string }, [string]>(
       'SELECT users FROM channel_users WHERE channel = ?'
@@ -153,6 +158,7 @@ export class PersistenceService {
     return row ? JSON.parse(row.users) : null;
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async getAllChannelUsers(): Promise<Record<string, string[]>> {
     const rows = this.db.query<{ channel: string; users: string }, []>(
       'SELECT channel, users FROM channel_users'
@@ -180,6 +186,7 @@ export class PersistenceService {
     });
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async getMessageMapping(discordMessageId: string): Promise<{
     ircChannel: string;
     ircMessage: string;
@@ -218,6 +225,7 @@ export class PersistenceService {
     });
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async getMetric(key: string): Promise<string | null> {
     const row = this.db.query<{ value: string }, [string]>(
       'SELECT value FROM metrics WHERE key = ?'
@@ -226,6 +234,7 @@ export class PersistenceService {
     return row ? row.value : null;
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async getAllMetrics(): Promise<Record<string, string>> {
     const rows = this.db.query<{ key: string; value: string }, []>(
       'SELECT key, value FROM metrics'
@@ -252,6 +261,7 @@ export class PersistenceService {
    * - Removes PM threads inactive for more than 7 days
    * - Removes channel user data older than 1 day
    */
+  // eslint-disable-next-line @typescript-eslint/require-await
   async cleanup(): Promise<void> {
     const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
     const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
@@ -263,6 +273,7 @@ export class PersistenceService {
     logger.debug('Database cleanup completed');
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async close(): Promise<void> {
     if (this.db) {
       this.db.close();
