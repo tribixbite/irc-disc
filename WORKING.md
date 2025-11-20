@@ -2,6 +2,50 @@
 
 ## 🚀 Current Work (2025-11-20)
 
+### ✅ Slash Commands Type Safety Completion (Round 16)
+**Date:** 2025-11-20
+**Files:** `lib/slash-commands.ts`
+
+**Changes:**
+Eliminated final 4 `any` types from slash-commands.ts using proper Discord.js and IRC types:
+
+1. **formatUser Functions (2 any types → 0):**
+   - Line 2197: Changed `(user: any) =>` to `(user: IRCUserInfo) =>`
+   - Line 2600: Changed `(user: any) =>` to `(user: IRCUserInfo) =>`
+   - Functions format IRC user information for Discord embeds
+   - Access user properties: nick, realname, hostname, isOperator, isAway, isSecure, channels
+   - IRCUserInfo interface from './irc-user-manager' provides all needed properties
+
+2. **Button Interaction Handlers (2 any types → 0):**
+   - Line 3393: `handleButtonInteraction(interaction: any, bot: Bot)` → `ButtonInteraction`
+   - Line 3410: `handleS3ListPagination(interaction: any, bot: Bot)` → `ButtonInteraction`
+   - Main button click handler for Discord component interactions
+   - S3 file list pagination handler for next/prev navigation
+   - ButtonInteraction from discord.js v13 provides proper typing (customId, deferUpdate, etc.)
+
+3. **Import Updates:**
+   - Added `IRCUserInfo` to imports from './irc-user-manager'
+   - ButtonInteraction already imported from 'discord.js'
+
+**Results:**
+- Linting errors: 42 → 38 (10% reduction, 4 fewer errors)
+- `no-explicit-any` errors: 22 → 18 (18% reduction, 4 fewer)
+- All tests passing: 233/233 ✅
+- Build successful ✅
+
+**Overall Progress from Start (16 rounds):**
+- **Linting errors:** 178 → 38 (79% reduction, 140 fewer)
+- **no-explicit-any:** 83 initial → 18 remaining (78% reduction, 65 fewer)
+- **All 233 tests passing throughout all 16 rounds**
+- **All 18 remaining any types are in lib/bot.ts**
+
+**Pattern Established:**
+- **IRC interfaces:** Use IRCUserInfo for IRC user data formatting
+- **Discord interactions:** Use ButtonInteraction for Discord component event handlers
+- **Import consolidation:** Add types to existing imports rather than creating new import lines
+
+**Status:** COMPLETED ✅
+
 ### ✅ IRC Queue and Slash Command Type Safety (Round 15)
 **Date:** 2025-11-20
 **Files:** `lib/irc/response-aware-whois-queue.ts`, `lib/slash-commands.ts`
