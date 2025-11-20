@@ -1,3 +1,168 @@
+# irc-disc v1.2.2 - S3 File Management & PM Command
+
+## 🚀 Current Work (2025-11-20)
+
+### ✅ S3 File Management System (Phase 1 & 2 COMPLETE)
+**Date:** 2025-11-20
+**Files:** `lib/persistence.ts`, `lib/s3-uploader.ts`, `lib/slash-commands.ts`, `docs/specs/S3_FILE_MANAGEMENT.md`
+
+**Implementation:**
+Comprehensive S3 file storage system with per-guild configuration, encrypted credentials, and full file operations via Discord slash commands.
+
+**Phase 1: Foundation**
+- ✅ Database schema: `guild_s3_configs` table with encrypted credential storage
+- ✅ AES-256-GCM encryption/decryption functions for AWS secrets
+- ✅ Persistence methods: `saveS3Config()`, `getS3Config()`, `deleteS3Config()`
+- ✅ Enhanced S3Uploader with list/metadata/rename/delete operations
+- ✅ Support for S3-compatible services (MinIO, DigitalOcean Spaces, Wasabi, etc.)
+- ✅ Pagination support with continuation tokens
+
+**Phase 2: Slash Commands**
+Replaced old `/irc-s3` command with comprehensive `/s3` command system:
+
+**Config Commands:**
+```
+/s3 config set <bucket> <region> <access_key> <secret> [endpoint] [prefix] [max_mb]
+/s3 config view          # View configuration (credentials masked)
+/s3 config test          # Test S3 connection
+/s3 config remove        # Delete configuration
+```
+
+**File Operations:**
+```
+/s3 files upload <file> [folder]    # Upload with optional folder organization
+/s3 files list [prefix]             # List files with prefix filtering
+```
+
+**Status:**
+```
+/s3 status               # Show configuration and statistics
+```
+
+**Security Features:**
+- Per-guild configuration stored in encrypted database
+- AES-256-GCM encryption for AWS credentials (requires `S3_CONFIG_ENCRYPTION_KEY`)
+- Ephemeral responses for security (credentials never shown in channels)
+- File size limits (1-100 MB, configurable, default 25 MB)
+- Automatic connection testing on config save
+
+**Encryption Setup:**
+```bash
+# Generate encryption key (32 bytes / 64 hex chars):
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+
+# Set environment variable:
+export S3_CONFIG_ENCRYPTION_KEY=<your-generated-key>
+```
+
+**Handler Functions:**
+- `handleS3ConfigCommands()` - Config management with modal-free credential input
+- `handleS3FilesCommands()` - File upload/list operations
+- `handleS3StatusCommand()` - Status display with configuration summary
+
+**Database Schema:**
+```sql
+CREATE TABLE guild_s3_configs (
+  guild_id TEXT PRIMARY KEY,
+  bucket TEXT NOT NULL,
+  region TEXT NOT NULL,
+  endpoint TEXT,
+  access_key_id TEXT NOT NULL,
+  secret_access_key_encrypted TEXT NOT NULL,  -- AES-256-GCM encrypted
+  key_prefix TEXT,
+  public_url_base TEXT,
+  force_path_style INTEGER DEFAULT 0,
+  max_file_size_mb INTEGER DEFAULT 25,
+  allowed_roles TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+)
+```
+
+**S3Uploader Enhancements:**
+```typescript
+// File listing with pagination
+async listObjects(prefix?: string, continuationToken?: string): Promise<ListResult>
+
+// Object metadata
+async getObjectMetadata(key: string): Promise<ObjectMetadata>
+
+// File operations
+async renameObject(oldKey: string, newKey: string): Promise<void>
+async deleteObject(key: string): Promise<void>
+async getObjectUrl(key: string, expiresIn?: number): Promise<string>
+```
+
+**Commits:**
+- `0019f8c` - Comprehensive S3 specification document
+- `79f5e52` - Database schema + S3Uploader enhancements
+- `c809b9a` - Spec update (Phase 1 complete)
+- `bc94510` - Slash command imports preparation
+- `a4f53c9` - Full slash command implementation
+
+**Testing:**
+- ✅ Build successful
+- ✅ 207 tests passed (15 pre-existing failures)
+- ✅ New S3 command structure tests passing
+- ✅ No TypeScript errors
+
+**Status:** COMPLETE ✅ - Ready for production use
+
+### ✅ Discord PM Initiation Command
+**Date:** 2025-11-20
+**Files:** `lib/slash-commands.ts`, `docs/specs/IRC_PM_START_COMMAND.md`
+
+**Implementation:**
+Added `/pm <nickname> [message]` command to initiate Discord-to-IRC private message threads.
+
+**Features:**
+- Creates new PM thread if none exists for the IRC nickname
+- Returns existing thread link if already created
+- Unarchives archived threads automatically
+- Cleans up stale state if thread was deleted
+- Optionally sends initial message with attribution
+- Crash-resilient (persist-then-cache pattern)
+
+**Example Usage:**
+```
+/pm alice                    # Opens/creates PM thread with alice
+/pm bob Hello there!         # Creates thread and sends initial message
+```
+
+**Spec:** `docs/specs/IRC_PM_START_COMMAND.md` - Complete implementation guide
+
+**Commit:** `673e261` - feat(slash-commands): add /pm command
+
+**Status:** COMPLETE ✅
+
+### ✅ Slash Command Registration Fix
+**Date:** 2025-11-20
+**Files:** `lib/slash-commands.ts`, `lib/bot.ts`
+
+**Problem:**
+Slash commands weren't appearing because global registration takes up to 1 hour to propagate.
+
+**Solution:**
+Changed from global registration to guild-specific registration for instant availability:
+
+```typescript
+// Register to all guilds the bot is in (instant)
+for (const [guildId, guild] of bot.discord.guilds.cache) {
+  await guild.commands.set(commandData);
+}
+```
+
+**Impact:**
+- ✅ Commands appear instantly (no 1-hour wait)
+- ✅ Commands update immediately on code changes
+- ✅ Better development experience
+
+**Commit:** `0846276` - fix(slash-commands): use guild-specific registration
+
+**Status:** COMPLETE ✅
+
+---
+
 # irc-disc v1.2.1 - Config Schema Fixes & Documentation
 
 ## ✅ v1.2.1 Release Ready for npm Publish (2025-11-09)
