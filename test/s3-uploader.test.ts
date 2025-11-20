@@ -1,6 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { S3Uploader, S3Config } from '../lib/s3-uploader';
 
+// Type helper to access private members for testing
+interface S3UploaderWithPrivates {
+  generateFilename(originalFilename: string): string;
+  getContentType(filename: string): string;
+  generatePublicUrl(key: string): string;
+  config: S3Config & { signedUrlExpiry?: number; keyPrefix?: string; forcePathStyle?: boolean };
+}
+
 // Mock AWS SDK
 vi.mock('@aws-sdk/client-s3', () => ({
   S3Client: vi.fn(() => ({
@@ -91,8 +99,8 @@ describe('S3Uploader', () => {
 
     it('should generate unique filenames', () => {
       // Generate multiple filenames
-      const filename1 = (uploader as any).generateFilename('test.jpg');
-      const filename2 = (uploader as any).generateFilename('test.jpg');
+      const filename1 = (uploader as unknown as S3UploaderWithPrivates).generateFilename('test.jpg');
+      const filename2 = (uploader as unknown as S3UploaderWithPrivates).generateFilename('test.jpg');
       
       expect(filename1).not.toBe(filename2);
       expect(filename1).toMatch(/test_\d+_[a-f0-9]{8}\.jpg/);
@@ -100,17 +108,17 @@ describe('S3Uploader', () => {
     });
 
     it('should sanitize filenames', () => {
-      const filename = (uploader as any).generateFilename('test file@#$%.jpg');
+      const filename = (uploader as unknown as S3UploaderWithPrivates).generateFilename('test file@#$%.jpg');
       expect(filename).toMatch(/test_file_\d+_[a-f0-9]{8}\.jpg/);
     });
 
     it('should preserve file extensions', () => {
-      const filename = (uploader as any).generateFilename('image.PNG');
+      const filename = (uploader as unknown as S3UploaderWithPrivates).generateFilename('image.PNG');
       expect(filename).toMatch(/\.PNG$/);
     });
 
     it('should handle files without extensions', () => {
-      const filename = (uploader as any).generateFilename('filename');
+      const filename = (uploader as unknown as S3UploaderWithPrivates).generateFilename('filename');
       expect(filename).toMatch(/filename_\d+_[a-f0-9]{8}$/);
     });
   });
@@ -121,31 +129,31 @@ describe('S3Uploader', () => {
     });
 
     it('should detect image content types', () => {
-      expect((uploader as any).getContentType('image.jpg')).toBe('image/jpeg');
-      expect((uploader as any).getContentType('image.png')).toBe('image/png');
-      expect((uploader as any).getContentType('image.gif')).toBe('image/gif');
+      expect((uploader as unknown as S3UploaderWithPrivates).getContentType('image.jpg')).toBe('image/jpeg');
+      expect((uploader as unknown as S3UploaderWithPrivates).getContentType('image.png')).toBe('image/png');
+      expect((uploader as unknown as S3UploaderWithPrivates).getContentType('image.gif')).toBe('image/gif');
     });
 
     it('should detect document content types', () => {
-      expect((uploader as any).getContentType('document.pdf')).toBe('application/pdf');
-      expect((uploader as any).getContentType('data.json')).toBe('application/json');
-      expect((uploader as any).getContentType('text.txt')).toBe('text/plain');
+      expect((uploader as unknown as S3UploaderWithPrivates).getContentType('document.pdf')).toBe('application/pdf');
+      expect((uploader as unknown as S3UploaderWithPrivates).getContentType('data.json')).toBe('application/json');
+      expect((uploader as unknown as S3UploaderWithPrivates).getContentType('text.txt')).toBe('text/plain');
     });
 
     it('should handle unknown extensions', () => {
-      expect((uploader as any).getContentType('file.unknown')).toBe('application/octet-stream');
+      expect((uploader as unknown as S3UploaderWithPrivates).getContentType('file.unknown')).toBe('application/octet-stream');
     });
 
     it('should be case insensitive', () => {
-      expect((uploader as any).getContentType('IMAGE.JPG')).toBe('image/jpeg');
-      expect((uploader as any).getContentType('Document.PDF')).toBe('application/pdf');
+      expect((uploader as unknown as S3UploaderWithPrivates).getContentType('IMAGE.JPG')).toBe('image/jpeg');
+      expect((uploader as unknown as S3UploaderWithPrivates).getContentType('Document.PDF')).toBe('application/pdf');
     });
   });
 
   describe('URL Generation', () => {
     it('should generate standard AWS S3 URLs', () => {
       uploader = new S3Uploader(s3Config);
-      const url = (uploader as any).generatePublicUrl('test/file.jpg');
+      const url = (uploader as unknown as S3UploaderWithPrivates).generatePublicUrl('test/file.jpg');
       expect(url).toBe('https://test-bucket.s3.us-east-1.amazonaws.com/test/file.jpg');
     });
 
@@ -155,7 +163,7 @@ describe('S3Uploader', () => {
         endpoint: 'https://nyc3.digitaloceanspaces.com'
       };
       uploader = new S3Uploader(configWithEndpoint);
-      const url = (uploader as any).generatePublicUrl('test/file.jpg');
+      const url = (uploader as unknown as S3UploaderWithPrivates).generatePublicUrl('test/file.jpg');
       expect(url).toBe('https://nyc3.digitaloceanspaces.com/test-bucket/test/file.jpg');
     });
 
@@ -165,7 +173,7 @@ describe('S3Uploader', () => {
         publicUrlBase: 'https://cdn.example.com'
       };
       uploader = new S3Uploader(configWithCustomUrl);
-      const url = (uploader as any).generatePublicUrl('test/file.jpg');
+      const url = (uploader as unknown as S3UploaderWithPrivates).generatePublicUrl('test/file.jpg');
       expect(url).toBe('https://cdn.example.com/test/file.jpg');
     });
 
@@ -176,7 +184,7 @@ describe('S3Uploader', () => {
         endpoint: 'https://s3.example.com/'
       };
       uploader = new S3Uploader(configWithTrailingSlash);
-      const url = (uploader as any).generatePublicUrl('test/file.jpg');
+      const url = (uploader as unknown as S3UploaderWithPrivates).generatePublicUrl('test/file.jpg');
       expect(url).toBe('https://cdn.example.com/test/file.jpg');
     });
   });
@@ -188,12 +196,12 @@ describe('S3Uploader', () => {
         signedUrlExpiry: 7200 // 2 hours
       };
       uploader = new S3Uploader(configWithDefaults);
-      expect((uploader as any).config.signedUrlExpiry).toBe(7200);
+      expect((uploader as unknown as S3UploaderWithPrivates).config.signedUrlExpiry).toBe(7200);
     });
 
     it('should use default values when not specified', () => {
       uploader = new S3Uploader(s3Config);
-      expect((uploader as any).config.signedUrlExpiry).toBe(3600); // 1 hour default
+      expect((uploader as unknown as S3UploaderWithPrivates).config.signedUrlExpiry).toBe(3600); // 1 hour default
     });
 
     it('should handle optional configuration', () => {
@@ -203,8 +211,8 @@ describe('S3Uploader', () => {
         forcePathStyle: true
       };
       uploader = new S3Uploader(minimalConfig);
-      expect((uploader as any).config.keyPrefix).toBe('uploads/');
-      expect((uploader as any).config.forcePathStyle).toBe(true);
+      expect((uploader as unknown as S3UploaderWithPrivates).config.keyPrefix).toBe('uploads/');
+      expect((uploader as unknown as S3UploaderWithPrivates).config.forcePathStyle).toBe(true);
     });
   });
 });

@@ -63,15 +63,15 @@ describe('Slash Commands', () => {
     expect(subcommandNames).toContain('delete');
 
     // Check share subcommand
-    const shareCommand = (s3Command.data as any).options.find((opt: any) => opt.name === 'share');
+    const shareCommand = data.options!.find((opt) => opt.name === 'share');
     expect(shareCommand).toBeDefined();
-    expect(shareCommand.type).toBe('SUB_COMMAND');
-    expect(shareCommand.options).toHaveLength(4); // file, channel, message, folder
+    expect(shareCommand!.type).toBe('SUB_COMMAND');
+    expect(shareCommand!.options).toHaveLength(4); // file, channel, message, folder
 
     // Check status subcommand
-    const statusCommand = (s3Command.data as any).options.find((opt: any) => opt.name === 'status');
-    expect(statusCommand).toBeDefined();
-    expect(statusCommand.type).toBe('SUB_COMMAND');
+    const statusSubcommand = data.options!.find((opt) => opt.name === 'status');
+    expect(statusSubcommand).toBeDefined();
+    expect(statusSubcommand!.type).toBe('SUB_COMMAND');
   });
 
   it('should have all commands with admin permissions', () => {
