@@ -2,7 +2,6 @@ import irc from 'irc-upd';
 import discord, {
   AnyChannel,
   BaseGuildTextChannel,
-  CommandInteraction,
   Intents,
   TextChannel,
   WebhookClient,
