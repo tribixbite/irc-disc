@@ -159,7 +159,7 @@ export class RecoveryManager extends EventEmitter {
    */
   private async executeRecovery(service: 'discord' | 'irc', initialError: Error): Promise<void> {
     logger.info(`Starting recovery process for ${service}`);
-    this.emit('recoveryStarted', service, initialError);
+    this.emit('recoveryStarted', service, initialError, this.config.maxRetries);
 
     for (let attempt = 1; attempt <= this.config.maxRetries; attempt++) {
       const delay = this.calculateDelay(attempt);

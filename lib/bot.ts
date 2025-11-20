@@ -541,14 +541,13 @@ class Bot {
     });
 
     // Log recovery events
-    this.recoveryManager.on('recoveryStarted', (service, error) => {
+    this.recoveryManager.on('recoveryStarted', (service, error, maxRetries) => {
       logger.warn(`🔄 Recovery started for ${service}: ${error.message}`);
       this.metrics.recordConnectionError();
 
       // Send IRC reconnecting notification
       if (service === 'irc') {
-        // TODO: Get actual attempt/maxAttempts from recovery manager
-        this.sendIRCConnectionNotification('reconnecting', undefined, 1, 5);
+        this.sendIRCConnectionNotification('reconnecting', undefined, 1, maxRetries);
       }
     });
 
