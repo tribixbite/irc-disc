@@ -174,7 +174,7 @@ export class MetricsServer {
     res.end(JSON.stringify(notFound, null, 2));
   }
 
-  private handleError(res: http.ServerResponse, error: any): void {
+  private handleError(res: http.ServerResponse, _error: any): void {
     const errorResponse = {
       error: 'Internal Server Error',
       message: 'An error occurred while processing the request',

@@ -56,8 +56,8 @@ export class PersistenceService {
    */
   private async writeWithRetry<T>(
     operation: () => T,
-    maxRetries: number = 5,
-    baseDelay: number = 50
+    _maxRetries: number = 5,
+    _baseDelay: number = 50
   ): Promise<T> {
     // Bun's SQLite is synchronous and handles locking internally
     return operation();

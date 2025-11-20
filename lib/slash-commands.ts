@@ -3410,7 +3410,7 @@ async function handleS3ListPagination(interaction: any, bot: Bot): Promise<void>
       return;
     }
 
-    const action = parts[2]; // 'next' or 'prev'
+    const _action = parts[2]; // 'next' or 'prev' - reserved for future use
     const token = parts[3] !== 'null' ? parts[3] : undefined;
     const prefix = parts[4] !== 'null' ? parts[4] : undefined;
 
