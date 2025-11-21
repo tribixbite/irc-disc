@@ -7,15 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-- **`/pm` Command UX** - No longer requires `privateMessages.channelId` configuration
-  - Command now works in any channel without setup
-  - Uses the channel where command is invoked by default
-  - Falls back to configured `privateMessages.channelId` if set
-  - More intuitive user experience - slash commands "just work"
-  - Backward compatible with existing configurations
-
 ### Added
+- **S3 Auto-Generated Encryption Keys** - Eliminates manual key generation requirement
+  - Optional `encryption_key` parameter in `/s3 config set` command
+  - Auto-generates 64-character hex key if not provided
+  - Bot displays generated key in response with setup instructions
+  - Validates user-provided keys (must be 64 hex characters)
+  - Reduces S3 setup from 3 steps to 2 steps
+  - Backward compatible - uses existing env var if set
 - **Configurable Database Cleanup Thresholds** - Database retention periods now fully configurable
   - `dbCleanupPMThreadDays`: Control PM thread mapping retention (1-365 days, default: 7)
   - `dbCleanupChannelUsersDays`: Control channel user cache retention (0.001-365 days, default: 1)
@@ -35,6 +34,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added guidance on when to adjust cleanup thresholds
 
 ### Fixed
+- **`/pm` Command UX** - No longer requires `privateMessages.channelId` configuration
+  - Command now works in any channel without setup
+  - Uses the channel where command is invoked by default
+  - Falls back to configured `privateMessages.channelId` if set
+  - More intuitive user experience - slash commands "just work"
+  - Backward compatible with existing configurations
+- **PM Message Relay** - IRC PM responses now appear in Discord threads
+  - Fixed thread lookup to work without `pmChannelId` configuration
+  - Uses persistence database to find threads in any channel
+  - Properly handles threads created via `/pm` in arbitrary channels
+  - Respects configured `formatDiscord` message formatting
 - **All 16 Issues in AREAS_NEEDING_WORK.md Completed** 🎉
   - All high-priority issues resolved
   - All medium-priority issues resolved
