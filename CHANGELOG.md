@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **S3 Encryption Key Database Persistence** - Automatic encryption key persistence and recovery
+  - Encryption keys automatically saved to database on generation/configuration
+  - Bot auto-loads keys from database on startup if not in environment
+  - Priority: environment variable → database → generate new
+  - Eliminates manual key backup requirement across bot restarts
+  - Keys stored in `bot_metrics` table as `s3_encryption_key`
+  - Updated response message shows automatic persistence status
 - **S3 Auto-Generated Encryption Keys** - Eliminates manual key generation requirement
   - Optional `encryption_key` parameter in `/s3 config set` command
   - Auto-generates 64-character hex key if not provided
