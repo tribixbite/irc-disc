@@ -360,6 +360,8 @@ Start or continue an IRC private message conversation
 - Automatically unarchives archived threads
 - Optional initial message to send immediately
 - Thread links are returned for easy access
+- **Works in any channel** - uses current channel or configured `privateMessages.channelId`
+- No configuration required - threads created in the channel where command is used
 
 #### `/irc-pm [subcommand]`
 Manage IRC private message threads

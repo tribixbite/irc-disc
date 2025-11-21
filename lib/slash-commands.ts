@@ -413,19 +413,14 @@ export const directPmCommand: SlashCommand = {
     const normalizedNick = nickname.toLowerCase();
 
     try {
-      // Validate PM channel is configured
-      if (!bot.pmChannelId) {
-        await interaction.editReply({
-          content: '❌ PM channel not configured. Set `privateMessages.channelId` in config.'
-        });
-        return;
-      }
+      // Use current channel or configured PM channel
+      const channelId = bot.pmChannelId || interaction.channelId;
 
-      // Get PM channel
-      const pmChannel = await bot.discord.channels.fetch(bot.pmChannelId);
+      // Get PM channel (either configured or current)
+      const pmChannel = await bot.discord.channels.fetch(channelId);
       if (!pmChannel || !pmChannel.isText()) {
         await interaction.editReply({
-          content: '❌ PM channel not found or is not a text channel.'
+          content: '❌ Channel not found or is not a text channel.'
         });
         return;
       }
@@ -470,7 +465,7 @@ export const directPmCommand: SlashCommand = {
 
           // Persist then cache (crash resilience)
           if (bot.persistence) {
-            await bot.persistence.savePMThread(nickname, thread.id, bot.pmChannelId);
+            await bot.persistence.savePMThread(nickname, thread.id, channelId);
           }
           bot.pmThreads.set(normalizedNick, thread.id);
 
