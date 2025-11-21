@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **IRC Disconnection User Alerts** - Users notified when messages fail due to IRC connection loss
+  - `@here` mention added to IRC connection status notifications (connected/disconnected/reconnecting)
+  - Direct reply to users when their Discord messages can't be sent to IRC
+  - Connection check before attempting message delivery
+  - Clear feedback prevents confusion about message delivery status
+  - Eliminates silent message drops during IRC outages
 - **S3 Encryption Key Database Persistence** - Automatic encryption key persistence and recovery
   - Encryption keys automatically saved to database on generation/configuration
   - Bot auto-loads keys from database on startup if not in environment

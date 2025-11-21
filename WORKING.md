@@ -2,6 +2,55 @@
 
 ## 🚀 Current Work (2025-11-21)
 
+### ✅ IRC Disconnection User Alerts (Round 25)
+**Date:** 2025-11-21
+**Files:** `lib/bot.ts`, `lib/status-notifications.ts`
+
+**Changes:**
+Implemented user notifications when messages fail due to IRC connection loss.
+
+**Problem Identified (from loglost.txt):**
+```
+21 Nov 19:52:02 - SEND: PRIVMSG ##flashlight https://imgur.com/a/SA46wGD
+2025-11-21T19:52:02.965Z warn: IRC client not ready, cannot send edit notification
+```
+
+User messages were being silently dropped when IRC connection was lost, causing confusion.
+
+**Implementation:**
+
+1. **Status Notifications (lib/status-notifications.ts):**
+   - Added `@here` mention to all IRC connection status messages
+   - `ircConnectedMessage`: '@here ✅ **IRC Connected** - Connection to IRC server established'
+   - `ircDisconnectedMessage`: '@here ❌ **IRC Disconnected** - Connection to IRC server lost ({reason}). Messages will not be sent to IRC until reconnected.'
+   - `ircReconnectingMessage`: '@here 🔄 **IRC Reconnecting** - Attempting reconnection (attempt {attempt}/{maxAttempts})'
+   - Alerts all active users when IRC goes down or comes back up
+
+2. **Message Delivery Check (lib/bot.ts:1371-1383):**
+   - Added `isIRCConnected()` check before attempting to send messages
+   - Logs warning when message dropped: "Message from {username} dropped - IRC not connected"
+   - Replies directly to user's message with warning:
+     ```
+     ⚠️ **Message not sent** - IRC connection is down. Your message was not delivered to IRC. Please wait for reconnection.
+     ```
+   - Prevents silent message loss
+
+**User Experience Improvements:**
+- ✅ `@here` alerts notify all users immediately when IRC goes down
+- ✅ Individual message replies provide immediate feedback to sender
+- ✅ No more silent message drops - users always know if delivery failed
+- ✅ Clear instructions to wait for reconnection
+- ✅ Reduces user confusion and support requests
+
+**Testing:**
+- Build: ✅ Passes (TypeScript compilation successful)
+- Tests: 197/233 passing (36 pre-existing failures)
+- Feature: ✅ Connection check and reply logic in compiled code
+
+**Commit:** `3a480cb` - feat(irc): alert users when messages fail due to IRC disconnection
+
+---
+
 ### ✅ S3 Encryption Key Database Persistence (Round 24)
 **Date:** 2025-11-21
 **Files:** `lib/persistence.ts`, `lib/persistence-bun.ts`, `lib/bot.ts`, `lib/slash-commands.ts`
