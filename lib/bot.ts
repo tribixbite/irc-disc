@@ -2017,32 +2017,66 @@ class Bot {
   }
 
   async findOrCreatePmThread(ircNick: string): Promise<ThreadChannel | null> {
-    const pmChannel = await this.findPmChannel();
-    if (!pmChannel) {
-      logger.warn('PM channel not found or not configured');
-      return null;
-    }
-
     const sanitizedNick = this.sanitizeNickname(ircNick);
     const threadName = `${this.pmThreadPrefix}${sanitizedNick}`;
-    
-    // Check if we have a cached thread
+
+    // Check if we have a cached thread ID
     const cachedThreadId = this.pmThreads.get(ircNick.toLowerCase());
     if (cachedThreadId) {
-      const cachedThread = pmChannel.threads.cache.get(cachedThreadId);
-      if (cachedThread) {
-        // Unarchive if archived
-        if (cachedThread.archived) {
-          try {
-            await cachedThread.setArchived(false);
-          } catch (error) {
-            logger.warn('Failed to unarchive PM thread:', error);
+      try {
+        const cachedThread = await this.discord.channels.fetch(cachedThreadId);
+        if (cachedThread && cachedThread.isThread()) {
+          // Unarchive if archived
+          if (cachedThread.archived) {
+            try {
+              await cachedThread.setArchived(false);
+            } catch (error) {
+              logger.warn('Failed to unarchive PM thread:', error);
+            }
           }
+          // Update activity timestamp in persistence
+          await this.persistence.savePMThread(ircNick, cachedThread.id, cachedThread.parentId!);
+          return cachedThread;
         }
-        // Update activity timestamp in persistence
-        await this.persistence.savePMThread(ircNick, cachedThread.id, pmChannel.id);
-        return cachedThread;
+      } catch (error) {
+        logger.debug(`Cached thread ${cachedThreadId} not found, will search in persistence`);
+        // Thread was deleted - clean up cache
+        this.pmThreads.delete(ircNick.toLowerCase());
       }
+    }
+
+    // Try to load from persistence
+    const persistedThread = await this.persistence.getPMThread(ircNick);
+    if (persistedThread) {
+      try {
+        const thread = await this.discord.channels.fetch(persistedThread.threadId);
+        if (thread && thread.isThread()) {
+          // Cache it
+          this.pmThreads.set(ircNick.toLowerCase(), thread.id);
+          // Unarchive if needed
+          if (thread.archived) {
+            try {
+              await thread.setArchived(false);
+            } catch (error) {
+              logger.warn('Failed to unarchive persisted PM thread:', error);
+            }
+          }
+          // Update activity timestamp
+          await this.persistence.savePMThread(ircNick, thread.id, thread.parentId!);
+          return thread;
+        }
+      } catch (error) {
+        logger.debug(`Persisted thread ${persistedThread.threadId} not found, will try to create new one`);
+        // Thread was deleted - clean up persistence
+        await this.persistence.deletePMThread(ircNick);
+      }
+    }
+
+    // No existing thread found - can only create if we have a PM channel configured
+    const pmChannel = await this.findPmChannel();
+    if (!pmChannel) {
+      logger.debug(`No PM thread exists for ${ircNick} and PM channel not configured`);
+      return null;
     }
 
     // Search for existing thread by name
@@ -2095,12 +2129,6 @@ class Bot {
   }
 
   async handleIrcPrivateMessage(from: string, text: string): Promise<void> {
-    // Check if PM feature is enabled and configured
-    if (!this.pmChannelId) {
-      logger.debug('Received IRC PM but private messages not configured');
-      return;
-    }
-
     // Check if user is ignored
     if (this.ignoredIrcUser(from)) {
       logger.debug(`Ignoring PM from ignored IRC user: ${from}`);
@@ -2112,7 +2140,7 @@ class Bot {
     try {
       const thread = await this.findOrCreatePmThread(from);
       if (!thread) {
-        logger.warn(`Failed to create/find PM thread for ${from}`);
+        logger.debug(`No PM thread exists for ${from}, skipping message`);
         return;
       }
 
