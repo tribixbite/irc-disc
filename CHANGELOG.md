@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **`/pm` Command UX** - No longer requires `privateMessages.channelId` configuration
+  - Command now works in any channel without setup
+  - Uses the channel where command is invoked by default
+  - Falls back to configured `privateMessages.channelId` if set
+  - More intuitive user experience - slash commands "just work"
+  - Backward compatible with existing configurations
+
 ### Added
 - **Configurable Database Cleanup Thresholds** - Database retention periods now fully configurable
   - `dbCleanupPMThreadDays`: Control PM thread mapping retention (1-365 days, default: 7)
