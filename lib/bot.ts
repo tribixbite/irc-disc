@@ -1368,6 +1368,20 @@ class Bot {
       }
     }
 
+    // Check if IRC is connected before attempting to send
+    if (!this.isIRCConnected()) {
+      logger.warn(`Message from ${author.username} dropped - IRC not connected`);
+
+      // Reply to the user's message to alert them
+      try {
+        await message.reply('⚠️ **Message not sent** - IRC connection is down. Your message was not delivered to IRC. Please wait for reconnection.');
+      } catch (error) {
+        logger.debug(`Could not reply to ${author.username} about dropped message:`, error);
+      }
+
+      return; // Don't attempt to send
+    }
+
     if (!isTextChannel(message.channel)) return;
 
     const channelName = `#${message.channel.name}`;

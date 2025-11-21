@@ -50,9 +50,9 @@ export class StatusNotificationManager {
       quitMessage: '*{nick}* has quit ({reason})',
       kickMessage: '*{nick}* was kicked from {channel} ({reason})',
       timeoutMessage: '*{nick}* was timed out in {channel} ({reason})',
-      ircConnectedMessage: '✅ **IRC Connected** - Connection to IRC server established',
-      ircDisconnectedMessage: '❌ **IRC Disconnected** - Connection to IRC server lost ({reason})',
-      ircReconnectingMessage: '🔄 **IRC Reconnecting** - Attempting reconnection (attempt {attempt}/{maxAttempts})',
+      ircConnectedMessage: '@here ✅ **IRC Connected** - Connection to IRC server established',
+      ircDisconnectedMessage: '@here ❌ **IRC Disconnected** - Connection to IRC server lost ({reason}). Messages will not be sent to IRC until reconnected.',
+      ircReconnectingMessage: '@here 🔄 **IRC Reconnecting** - Attempting reconnection (attempt {attempt}/{maxAttempts})',
       ...config
     };
 
