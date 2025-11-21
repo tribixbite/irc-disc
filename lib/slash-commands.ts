@@ -1099,13 +1099,16 @@ async function handleS3ConfigCommands(interaction: CommandInteraction, bot: Bot,
       await interaction.deferReply({ ephemeral: true });
 
       // Get or generate encryption key
-      let encryptionKey = interaction.options.getString('encryption_key') || undefined;
+      let encryptionKey: string;
       let keyWasGenerated = false;
 
-      if (!encryptionKey) {
+      const providedKey = interaction.options.getString('encryption_key');
+      if (!providedKey) {
         // Check if we already have one in env or generate new one
-        encryptionKey = process.env.S3_CONFIG_ENCRYPTION_KEY;
-        if (!encryptionKey) {
+        const envKey = process.env.S3_CONFIG_ENCRYPTION_KEY;
+        if (envKey) {
+          encryptionKey = envKey;
+        } else {
           // Generate a new encryption key
           encryptionKey = require('crypto').randomBytes(32).toString('hex');
           keyWasGenerated = true;
@@ -1114,12 +1117,13 @@ async function handleS3ConfigCommands(interaction: CommandInteraction, bot: Bot,
         }
       } else {
         // User provided a key - validate it
-        if (encryptionKey.length !== 64 || !/^[0-9a-fA-F]+$/.test(encryptionKey)) {
+        if (providedKey.length !== 64 || !/^[0-9a-fA-F]+$/.test(providedKey)) {
           await interaction.editReply({
             content: '❌ **Invalid Encryption Key**\n\nKey must be 64 hexadecimal characters.\nGenerate: `node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"`'
           });
           return;
         }
+        encryptionKey = providedKey;
         // Set the provided key as the active one
         process.env.S3_CONFIG_ENCRYPTION_KEY = encryptionKey;
       }
@@ -1142,6 +1146,9 @@ async function handleS3ConfigCommands(interaction: CommandInteraction, bot: Bot,
         if (!bot.persistence) throw new Error('Database not available');
         await bot.persistence.saveS3Config(s3Config);
 
+        // Save encryption key to database for persistence across restarts
+        await bot.persistence.saveEncryptionKey(encryptionKey);
+
         const testUploader = new S3Uploader({ region, bucket, accessKeyId, secretAccessKey, endpoint, keyPrefix, forcePathStyle: s3Config.forcePathStyle });
         const testResult = await testUploader.testConnection();
 
@@ -1155,11 +1162,11 @@ async function handleS3ConfigCommands(interaction: CommandInteraction, bot: Bot,
 
         // Add encryption key information if it was generated
         if (keyWasGenerated) {
-          responseMessage += '\n\n🔐 **Generated Encryption Key:**\n```\n' + encryptionKey + '\n```\n';
-          responseMessage += '⚠️ **IMPORTANT:** Save this key securely!\n';
-          responseMessage += '• Add to your environment: `export S3_CONFIG_ENCRYPTION_KEY=' + encryptionKey + '`\n';
-          responseMessage += '• Or add to your `.env` file\n';
-          responseMessage += '• Required for bot restart to decrypt S3 credentials';
+          responseMessage += '\n\n🔐 **Auto-Generated Encryption Key**\n';
+          responseMessage += '✅ Key automatically saved to database\n';
+          responseMessage += '✅ Will persist across bot restarts\n';
+          responseMessage += '\n💡 **Optional:** Export for external backups:\n';
+          responseMessage += '```\n' + encryptionKey + '\n```';
         }
 
         if (testResult.success) {

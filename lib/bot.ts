@@ -387,9 +387,18 @@ class Bot {
 
   async connect(): Promise<void> {
     logger.debug('Connecting to IRC and Discord');
-    
+
     // Initialize persistence service first
     await this.persistence.initialize();
+
+    // Load S3 encryption key from database if not in environment
+    if (!process.env.S3_CONFIG_ENCRYPTION_KEY) {
+      const dbEncryptionKey = await this.persistence.getEncryptionKey();
+      if (dbEncryptionKey) {
+        process.env.S3_CONFIG_ENCRYPTION_KEY = dbEncryptionKey;
+        logger.info('S3 encryption key loaded from database');
+      }
+    }
 
     // Load existing data from persistence
     const persistedPMThreads = await this.persistence.getAllPMThreads();

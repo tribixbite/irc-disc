@@ -457,6 +457,27 @@ export class PersistenceService {
   }
 
   /**
+   * Save the S3 encryption key to database
+   * This key is used to encrypt/decrypt S3 credentials
+   */
+  async saveEncryptionKey(key: string): Promise<void> {
+    await this.saveMetric('s3_encryption_key', key);
+    logger.info('S3 encryption key saved to database');
+  }
+
+  /**
+   * Get the S3 encryption key from database
+   * Returns null if not found
+   */
+  async getEncryptionKey(): Promise<string | null> {
+    const key = await this.getMetric('s3_encryption_key');
+    if (key) {
+      logger.debug('S3 encryption key loaded from database');
+    }
+    return key;
+  }
+
+  /**
    * Save S3 configuration for a guild
    * Encrypts the secret access key before storage
    */

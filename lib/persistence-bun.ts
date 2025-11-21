@@ -242,6 +242,29 @@ export class PersistenceService {
     return row ? row.value : null;
   }
 
+  /**
+   * Save the S3 encryption key to database
+   * This key is used to encrypt/decrypt S3 credentials
+   */
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async saveEncryptionKey(key: string): Promise<void> {
+    await this.saveMetric('s3_encryption_key', key);
+    logger.info('S3 encryption key saved to database');
+  }
+
+  /**
+   * Get the S3 encryption key from database
+   * Returns null if not found
+   */
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async getEncryptionKey(): Promise<string | null> {
+    const key = await this.getMetric('s3_encryption_key');
+    if (key) {
+      logger.debug('S3 encryption key loaded from database');
+    }
+    return key;
+  }
+
   // eslint-disable-next-line @typescript-eslint/require-await
   async getAllMetrics(): Promise<Record<string, string>> {
     const rows = this.db.query<{ key: string; value: string }, []>(
