@@ -275,8 +275,10 @@ S3_BUCKET=discord-attachments
 S3_ACCESS_KEY_ID=your_access_key
 S3_SECRET_ACCESS_KEY=your_secret_key
 
-# S3 Configuration Security (Required for /s3 commands)
-# Generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+# S3 Configuration Security (Optional - auto-generated if not set)
+# The bot will generate this automatically if not provided
+# Save the generated key from bot response to persist across restarts
+# Or generate manually: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 S3_CONFIG_ENCRYPTION_KEY=your_64_character_hex_key_here
 
 # Monitoring
@@ -430,7 +432,10 @@ Comprehensive S3 file storage management with per-guild configuration
 
 **Requirements:**
 - Administrator permissions required
-- `S3_CONFIG_ENCRYPTION_KEY` environment variable must be set (see Configuration section)
+- **Encryption key**: Auto-generated on first `/s3 config set` if not provided
+  - Bot displays generated key in response - save it to environment variable
+  - Or provide your own 64-character hex key via `encryption_key` parameter
+  - Required to decrypt credentials after bot restart
 - S3 bucket must exist and be accessible with provided credentials
 
 #### `/irc-mentions [subcommand]`

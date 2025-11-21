@@ -1097,9 +1097,31 @@ async function handleS3ConfigCommands(interaction: CommandInteraction, bot: Bot,
   switch (subcommand) {
     case 'set': {
       await interaction.deferReply({ ephemeral: true });
-      if (!process.env.S3_CONFIG_ENCRYPTION_KEY) {
-        await interaction.editReply({ content: '❌ **Config Error**\n\nS3_CONFIG_ENCRYPTION_KEY not set.\nGenerate: `node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"`' });
-        return;
+
+      // Get or generate encryption key
+      let encryptionKey = interaction.options.getString('encryption_key') || undefined;
+      let keyWasGenerated = false;
+
+      if (!encryptionKey) {
+        // Check if we already have one in env or generate new one
+        encryptionKey = process.env.S3_CONFIG_ENCRYPTION_KEY;
+        if (!encryptionKey) {
+          // Generate a new encryption key
+          encryptionKey = require('crypto').randomBytes(32).toString('hex');
+          keyWasGenerated = true;
+          // Set it in the current process environment for this session
+          process.env.S3_CONFIG_ENCRYPTION_KEY = encryptionKey;
+        }
+      } else {
+        // User provided a key - validate it
+        if (encryptionKey.length !== 64 || !/^[0-9a-fA-F]+$/.test(encryptionKey)) {
+          await interaction.editReply({
+            content: '❌ **Invalid Encryption Key**\n\nKey must be 64 hexadecimal characters.\nGenerate: `node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"`'
+          });
+          return;
+        }
+        // Set the provided key as the active one
+        process.env.S3_CONFIG_ENCRYPTION_KEY = encryptionKey;
       }
 
       const bucket = interaction.options.getString('bucket', true);
@@ -1123,11 +1145,28 @@ async function handleS3ConfigCommands(interaction: CommandInteraction, bot: Bot,
         const testUploader = new S3Uploader({ region, bucket, accessKeyId, secretAccessKey, endpoint, keyPrefix, forcePathStyle: s3Config.forcePathStyle });
         const testResult = await testUploader.testConnection();
 
+        // Build response message
+        let responseMessage = '';
         if (testResult.success) {
-          await interaction.editReply({ content: `✅ **S3 Configured**\n\nBucket: \`${bucket}\`\nRegion: \`${region}\`\nTest: ✅\n\nUse \`/s3 files upload\` to upload files.` });
+          responseMessage = `✅ **S3 Configured**\n\nBucket: \`${bucket}\`\nRegion: \`${region}\`\nTest: ✅`;
         } else {
-          await interaction.editReply({ content: `⚠️ **S3 Saved (Test Failed)**\n\nBucket: \`${bucket}\`\nTest: ❌ ${testResult.error}\n\nVerify credentials.` });
+          responseMessage = `⚠️ **S3 Saved (Test Failed)**\n\nBucket: \`${bucket}\`\nTest: ❌ ${testResult.error}\n\nVerify credentials.`;
         }
+
+        // Add encryption key information if it was generated
+        if (keyWasGenerated) {
+          responseMessage += '\n\n🔐 **Generated Encryption Key:**\n```\n' + encryptionKey + '\n```\n';
+          responseMessage += '⚠️ **IMPORTANT:** Save this key securely!\n';
+          responseMessage += '• Add to your environment: `export S3_CONFIG_ENCRYPTION_KEY=' + encryptionKey + '`\n';
+          responseMessage += '• Or add to your `.env` file\n';
+          responseMessage += '• Required for bot restart to decrypt S3 credentials';
+        }
+
+        if (testResult.success) {
+          responseMessage += '\n\nUse `/s3 files upload` to upload files.';
+        }
+
+        await interaction.editReply({ content: responseMessage });
       } catch (error) {
         await interaction.editReply({ content: `❌ Save failed: ${(error as Error).message}` });
       }
@@ -1557,7 +1596,8 @@ export const s3Command: SlashCommand = {
           { type: 'STRING', name: 'secret_access_key', description: 'AWS Secret (encrypted)', required: true },
           { type: 'STRING', name: 'endpoint', description: 'S3-compatible endpoint', required: false },
           { type: 'STRING', name: 'key_prefix', description: 'Folder prefix', required: false },
-          { type: 'INTEGER', name: 'max_file_size_mb', description: 'Max MB (1-100, default: 25)', required: false }
+          { type: 'INTEGER', name: 'max_file_size_mb', description: 'Max MB (1-100, default: 25)', required: false },
+          { type: 'STRING', name: 'encryption_key', description: 'Encryption key (auto-generated if omitted)', required: false }
         ]},
         { type: 'SUB_COMMAND', name: 'view', description: 'View configuration' },
         { type: 'SUB_COMMAND', name: 'test', description: 'Test connection' },
