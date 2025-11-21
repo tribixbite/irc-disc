@@ -2406,3 +2406,93 @@ Added comprehensive documentation for the new database cleanup configuration opt
 **Status:** COMPLETE ✅ - Database cleanup configuration fully documented
 
 **Commit:** 8a23d8b - "docs(readme): add database cleanup configuration documentation"
+
+## Round 22: PM Command UX Improvement
+**Date:** 2025-11-21
+**Commit:** 3c9cbc7
+
+### ✅ Fixed /pm Command to Use Current Channel
+**Files:** `lib/slash-commands.ts`, `README.md`
+
+**Issue Reported:**
+User tried to use `/pm` command and received error requiring `privateMessages.channelId` to be set in config. This was unintuitive - the command should work in any channel without requiring configuration.
+
+**Root Cause:**
+The `/pm` command implementation (lines 415-426) required `bot.pmChannelId` to be pre-configured and would fail with an error if not set. This broke the expected user experience where slash commands "just work" in the channel where they're invoked.
+
+**Fix Implementation:**
+
+1. **Dynamic Channel Selection** (`lib/slash-commands.ts` line 417)
+   ```typescript
+   // OLD: Required bot.pmChannelId to be configured
+   if (!bot.pmChannelId) {
+     await interaction.editReply({
+       content: '❌ PM channel not configured. Set `privateMessages.channelId` in config.'
+     });
+     return;
+   }
+   const pmChannel = await bot.discord.channels.fetch(bot.pmChannelId);
+   
+   // NEW: Uses current channel or falls back to configured channel
+   const channelId = bot.pmChannelId || interaction.channelId;
+   const pmChannel = await bot.discord.channels.fetch(channelId);
+   ```
+
+2. **Updated Persistence Call** (line 468)
+   ```typescript
+   // OLD: Always used bot.pmChannelId
+   await bot.persistence.savePMThread(nickname, thread.id, bot.pmChannelId);
+   
+   // NEW: Uses dynamic channelId
+   await bot.persistence.savePMThread(nickname, thread.id, channelId);
+   ```
+
+3. **Improved Error Message** (line 422)
+   - Changed from: "PM channel not configured..."
+   - Changed to: "Channel not found or is not a text channel."
+   - More generic and accurate for dynamic channel usage
+
+**Behavior Changes:**
+
+**Before:**
+- `/pm mynick` in any channel → ❌ Error: "Set privateMessages.channelId in config"
+- User must configure bot before using feature
+- Confusing UX - slash commands should work where invoked
+
+**After:**
+- `/pm mynick` in #general → ✅ Creates thread in #general
+- `/pm mynick` in #support → ✅ Creates thread in #support
+- No configuration required for basic usage
+- Still respects `privateMessages.channelId` if explicitly configured (backward compatible)
+
+**Configuration Priority:**
+1. If `privateMessages.channelId` is configured → use that channel (all threads in one place)
+2. If not configured → use current channel (threads created where command is invoked)
+
+**Backward Compatibility:**
+- ✅ Existing configs with `privateMessages.channelId` work unchanged
+- ✅ Threads still created in configured channel if specified
+- ✅ No breaking changes for deployed bots
+- ✅ New behavior only applies when channelId is NOT configured
+
+**User Impact:**
+- **Improved UX**: Command works immediately without configuration
+- **More Intuitive**: Threads created in the channel where you use the command
+- **Flexible**: Still allows centralized PM channel if desired via config
+- **No Breaking Changes**: Existing setups continue to work as before
+
+**Documentation Updates:**
+Updated README.md `/pm` command section (lines 363-364):
+- Added: "Works in any channel - uses current channel or configured privateMessages.channelId"
+- Added: "No configuration required - threads created in the channel where command is used"
+- Clarifies the dynamic behavior and config priority
+
+**Testing:**
+- ✅ Build successful (TypeScript compilation)
+- ✅ All 233 tests passing
+- ✅ No regressions in existing PM functionality
+- ✅ Command logic properly handles both configured and unconfigured scenarios
+
+**Status:** COMPLETE ✅ - PM command now has intuitive, config-optional behavior
+
+**Commit:** 3c9cbc7 - "fix(slash-commands): /pm command now uses current channel instead of requiring config"
