@@ -10,6 +10,7 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { logger } from './logger';
+import { S3RateLimiter, S3RateLimitConfig, createDefaultS3RateLimiter } from './s3-rate-limiter';
 import crypto from 'crypto';
 import path from 'path';
 
@@ -23,6 +24,7 @@ export interface S3Config {
   publicUrlBase?: string;     // Custom public URL base (e.g., CDN domain)
   keyPrefix?: string;         // Optional prefix for all uploaded keys
   signedUrlExpiry?: number;   // Signed URL expiry in seconds (default: 3600)
+  rateLimitConfig?: S3RateLimitConfig; // Rate limiting configuration
 }
 
 export interface UploadResult {
@@ -56,6 +58,7 @@ export interface ObjectMetadata {
 export class S3Uploader {
   private client: S3Client;
   private config: S3Config;
+  private rateLimiter: S3RateLimiter;
 
   constructor(config: S3Config) {
     this.config = {
@@ -74,6 +77,11 @@ export class S3Uploader {
       forcePathStyle: this.config.forcePathStyle || false,
     });
 
+    // Initialize Rate Limiter
+    this.rateLimiter = this.config.rateLimitConfig 
+      ? new S3RateLimiter(this.config.rateLimitConfig)
+      : createDefaultS3RateLimiter();
+
     logger.info('S3 uploader initialized', { 
       region: this.config.region, 
       bucket: this.config.bucket,
@@ -85,12 +93,20 @@ export class S3Uploader {
    * Upload a file buffer to S3 with a custom filename
    */
   async uploadFile(
+    userId: string,
     buffer: Buffer, 
     originalFilename: string, 
     customFilename?: string,
     contentType?: string
   ): Promise<UploadResult> {
     try {
+      // Check rate limit
+      const limitCheck = this.rateLimiter.checkLimit(userId);
+      if (!limitCheck.allowed) {
+        const retrySeconds = limitCheck.retryAfter || 60;
+        throw new Error(`Rate limit exceeded. Try again in ${retrySeconds} seconds.`);
+      }
+
       // Generate filename
       const filename = customFilename || this.generateFilename(originalFilename);
       const key = this.config.keyPrefix ? `${this.config.keyPrefix}/${filename}` : filename;

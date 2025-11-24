@@ -1252,7 +1252,7 @@ async function handleS3FilesCommands(interaction: CommandInteraction, bot: Bot, 
         const buffer = Buffer.from(await response.arrayBuffer());
         const filename = attachment.name || 'file';
         const customFilename = folder ? `${folder}/${filename}` : filename;
-        const result = await uploader.uploadFile(buffer, filename, customFilename || undefined);
+            const result = await uploader.uploadFile(interaction.user.id, buffer, filename, customFilename || undefined);
 
         if (result.success) {
           const embed = new MessageEmbed().setTitle('✅ Upload Success').setColor('#00ff00')
@@ -1547,7 +1547,7 @@ async function handleS3ShareCommand(interaction: CommandInteraction, bot: Bot): 
     const buffer = Buffer.from(await response.arrayBuffer());
     const filename = attachment.name || 'file';
     const customFilename = folder ? `${folder}/${filename}` : filename;
-    const result = await uploader.uploadFile(buffer, filename, customFilename || undefined);
+        const result = await uploader.uploadFile(interaction.user.id, buffer, filename, customFilename || undefined);
 
     if (!result.success) {
       await interaction.editReply({ content: `❌ Upload failed: ${result.error}` });
@@ -2357,25 +2357,25 @@ export const ircChannelInfoCommand: SlashCommand = {
     ]
   },
   async execute(interaction: CommandInteraction, bot: Bot) {
-    // Admin permission check
-    if (!interaction.memberPermissions?.has(Permissions.FLAGS.ADMINISTRATOR)) {
-      await interaction.reply({
-        content: '❌ You need Administrator permissions to use this command.',
-        ephemeral: true
-      });
-      return;
-    }
-
-    // IRC connection check
-    if (!bot.isIRCConnected()) {
-      await interaction.reply({
-        content: '❌ **IRC Not Connected**\n\nThe IRC connection is currently down. Please wait for reconnection or check bot status.',
-        ephemeral: true
-      });
-      return;
-    }
-
     try {
+      // Admin permission check
+      if (!interaction.memberPermissions?.has(Permissions.FLAGS.ADMINISTRATOR)) {
+        await interaction.reply({
+          content: '❌ You need Administrator permissions to use this command.',
+          ephemeral: true
+        });
+        return;
+      }
+
+      // IRC connection check
+      if (!bot.isIRCConnected()) {
+        await interaction.reply({
+          content: '❌ **IRC Not Connected**\n\nThe IRC connection is currently down. Please wait for reconnection or check bot status.',
+          ephemeral: true
+        });
+        return;
+      }
+
       const subcommand = interaction.options.getSubcommand();
 
       switch (subcommand) {
@@ -2560,10 +2560,23 @@ export const ircChannelInfoCommand: SlashCommand = {
       
     } catch (error) {
       logger.error('Error in IRC channel info command:', error);
-      await interaction.reply({ 
-        content: '❌ Failed to execute IRC channel info command.', 
-        ephemeral: true 
-      });
+
+      // Try to reply, but catch if interaction has expired
+      try {
+        if (!interaction.replied && !interaction.deferred) {
+          await interaction.reply({
+            content: '❌ Failed to execute IRC channel info command.',
+            ephemeral: true
+          });
+        } else if (interaction.deferred) {
+          await interaction.editReply({
+            content: '❌ Failed to execute IRC channel info command.'
+          });
+        }
+      } catch (replyError) {
+        // Interaction expired or already handled - log but don't crash
+        logger.warn('Could not send error reply for IRC channel info command (interaction may have expired):', replyError);
+      }
     }
   }
 };

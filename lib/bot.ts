@@ -1489,7 +1489,7 @@ class Bot {
             
             if (this.s3Uploader) {
               try {
-                const s3Url = await this.uploadAttachmentToS3(attachment);
+                const s3Url = await this.uploadAttachmentToS3(attachment, author.id);
                 if (s3Url) {
                   attachmentURL = s3Url;
                   logger.debug('Using S3 URL for attachment:', attachment.name);
@@ -2229,7 +2229,7 @@ class Bot {
             
             if (this.s3Uploader) {
               try {
-                const s3Url = await this.uploadAttachmentToS3(attachment);
+                const s3Url = await this.uploadAttachmentToS3(attachment, message.author.id);
                 if (s3Url) {
                   attachmentURL = s3Url;
                   logger.debug('Using S3 URL for PM attachment:', attachment.name);
@@ -2359,7 +2359,7 @@ class Bot {
   /**
    * Upload Discord attachment to S3 and return public URL
    */
-  async uploadAttachmentToS3(attachment: discord.MessageAttachment, customFilename?: string): Promise<string | null> {
+  async uploadAttachmentToS3(attachment: discord.MessageAttachment, userId: string, customFilename?: string): Promise<string | null> {
     if (!this.s3Uploader) {
       return null;
     }
@@ -2381,6 +2381,7 @@ class Bot {
       
       // Upload to S3
       const result = await this.s3Uploader.uploadFile(
+        userId,
         buffer,
         attachment.name || 'unknown',
         customFilename,
