@@ -1,6 +1,66 @@
 # irc-disc v1.2.3 - TypeScript Type Safety Complete
 
-## 🚀 Current Work (2025-11-21)
+## 🚀 Current Work (2025-11-24)
+
+### ✅ Bot Crash Fix: Expired Discord Interactions (Round 26)
+**Date:** 2025-11-24
+**Files:** `lib/slash-commands.ts`, `test/s3-integration.test.ts`
+
+**Problem:**
+Bot crashed when `/irc-channelinfo users` command took >3 seconds to process:
+```
+2025-11-24T15:16:54.215Z error: Error in IRC channel info command: Unknown interaction
+DiscordAPIError: Unknown interaction
+  code: 10062,
+  httpStatus: 404
+```
+
+**Root Cause:**
+Discord invalidates interaction tokens after 3 seconds. When the command took too long to process and build the response, the bot tried to reply with an error message to an expired interaction, which crashed the entire bot process.
+
+**Solution:**
+Added nested try-catch in the `/irc-channelinfo` error handler (lines 2564-2579):
+```typescript
+} catch (error) {
+  logger.error('Error in IRC channel info command:', error);
+
+  // Try to reply, but catch if interaction has expired
+  try {
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: '❌ Failed to execute IRC channel info command.',
+        ephemeral: true
+      });
+    } else if (interaction.deferred) {
+      await interaction.editReply({
+        content: '❌ Failed to execute IRC channel info command.'
+      });
+    }
+  } catch (replyError) {
+    // Interaction expired or already handled - log but don't crash
+    logger.warn('Could not send error reply for IRC channel info command (interaction may have expired):', replyError);
+  }
+}
+```
+
+**Key Changes:**
+1. Check `interaction.replied` and `interaction.deferred` before attempting reply
+2. Nested try-catch prevents crash if reply fails
+3. Logs warning instead of crashing when interaction expires
+4. Also moved outer try-catch to wrap entire execute function for consistency
+
+**Additional Fix:**
+- Fixed TypeScript import path in `test/s3-integration.test.ts` (added `.js` extension for ES modules)
+
+**Testing:**
+- Build: ✅ Passes (TypeScript compilation successful)
+- Behavior: Bot will now log warning instead of crashing on expired interactions
+
+**Commit:** `74b0552` - fix(slash-commands): prevent bot crash on expired Discord interactions
+
+---
+
+## 🚀 Previous Work (2025-11-21)
 
 ### ✅ IRC Disconnection User Alerts (Round 25)
 **Date:** 2025-11-21

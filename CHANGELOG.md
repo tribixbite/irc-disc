@@ -47,6 +47,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added guidance on when to adjust cleanup thresholds
 
 ### Fixed
+- **Bot Crash on Expired Discord Interactions** - Prevents bot crash when slash commands time out
+  - Added nested try-catch in `/irc-channelinfo` error handler
+  - Checks `interaction.replied` and `interaction.deferred` before attempting reply
+  - Logs warning instead of crashing when interaction expires (>3 seconds)
+  - Fixes "Unknown interaction" error (Discord API code 10062)
+  - Bot now gracefully handles slow commands without crashing
 - **`/pm` Command UX** - No longer requires `privateMessages.channelId` configuration
   - Command now works in any channel without setup
   - Uses the channel where command is invoked by default
