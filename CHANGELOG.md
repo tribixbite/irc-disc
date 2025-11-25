@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.5] - 2025-11-25
+
+### Fixed
+- **S3 Configuration Database Table** - Added missing `guild_s3_configs` table to Bun persistence
+  - Fixes "no such table: guild_s3_configs" error when using `/s3 config set`
+  - Ensures S3 configuration works correctly on Bun runtime
+  - Table creation now happens automatically on bot startup
+- **IRC Client Test Stub** - Added missing `connect()` method to test mock
+  - Fixes "connect is not a function" errors in test suite
+  - Improves test reliability and reduces false failures
+
 ## [1.2.4] - 2025-11-25
 
 ### Added
