@@ -33,6 +33,8 @@ describe('Bot', async () => {
     await bot.connect();
     // Wait for setImmediate callback that initializes IRC client
     await new Promise(resolve => setImmediate(resolve));
+    // Clear mock calls from bot.connect() so tests can check for their specific calls
+    vi.clearAllMocks();
   };
 
   // modified variants of https://github.com/discordjs/discord.js/blob/stable/src/client/ClientDataManager.js

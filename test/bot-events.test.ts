@@ -56,6 +56,8 @@ describe('Bot Events', () => {
     await waitForIRCClient(); // Wait for IRC client initialization
     // Wait for setImmediate callback that initializes IRC client
     await new Promise(resolve => setImmediate(resolve));
+    // Clear mock calls from bot.connect() so tests can check for their specific calls
+    vi.clearAllMocks();
   });
 
   afterEach(async function () {

@@ -8,6 +8,7 @@ class ClientStub extends events.EventEmitter {
     this.nick = args[1];
   }
 
+  connect() {}
   disconnect() {}
 
   say() {}

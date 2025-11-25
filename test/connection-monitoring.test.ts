@@ -73,6 +73,9 @@ describe('IRC Connection Monitoring', () => {
       throw error;
     }
 
+    // Clear mock calls from bot.connect() so tests can check for their specific calls
+    vi.clearAllMocks();
+
     // Verify IRC client was created
     if (!bot.ircClient) {
       throw new Error('IRC client not created during bot.connect() - setImmediate callback may not have run');
