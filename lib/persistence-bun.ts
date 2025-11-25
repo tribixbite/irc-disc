@@ -162,6 +162,21 @@ export class PersistenceService {
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL,
         updated_at INTEGER NOT NULL
+      )`,
+      `CREATE TABLE IF NOT EXISTS guild_s3_configs (
+        guild_id TEXT PRIMARY KEY,
+        bucket TEXT NOT NULL,
+        region TEXT NOT NULL,
+        endpoint TEXT,
+        access_key_id TEXT NOT NULL,
+        secret_access_key_encrypted TEXT NOT NULL,
+        key_prefix TEXT,
+        public_url_base TEXT,
+        force_path_style INTEGER NOT NULL DEFAULT 0,
+        max_file_size_mb INTEGER NOT NULL DEFAULT 10,
+        allowed_roles TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
       )`
     ];
 
