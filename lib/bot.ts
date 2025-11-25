@@ -361,6 +361,12 @@ class Bot {
    */
   async resolveViaGetent(hostname: string): Promise<string> {
     try {
+      // Only use Bun.spawn() when running in Bun runtime
+      if (typeof Bun === 'undefined') {
+        // In Node.js or test environment, just return hostname without DNS resolution
+        return hostname;
+      }
+
       // Use ping -c 1 to resolve hostname to IP
       // ping output includes the resolved IP in parentheses: "PING irc.libera.chat (103.196.37.95)"
       const proc = Bun.spawn(['ping', '-c', '1', hostname]);
