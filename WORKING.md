@@ -2,6 +2,48 @@
 
 ## 🚀 Current Work (2025-11-24)
 
+### ✅ S3 Configuration Fix for Bun Runtime (Round 27)
+**Date:** 2025-11-24
+**Files:** `lib/persistence-bun.ts`
+
+**Problem:**
+S3 configuration commands failed with error:
+```
+❌ Save failed: bot.persistence.saveS3Config is not a function
+```
+
+**Root Cause:**
+The Bun persistence implementation (`persistence-bun.ts`) was missing all S3-related methods. When S3 features were added in earlier rounds, they were only implemented in the Node.js version (`persistence.ts`), not the Bun version.
+
+**Solution:**
+Ported all S3 methods from Node.js implementation to Bun implementation:
+
+**Added Methods:**
+1. `saveS3Config(config: S3Config)` - Saves encrypted S3 configuration to database
+2. `getS3Config(guildId: string)` - Retrieves and decrypts S3 configuration
+3. `deleteS3Config(guildId: string)` - Removes S3 configuration
+
+**Added Interfaces:**
+- `S3Config` - S3 configuration structure
+- `S3ConfigRow` - Database row structure
+
+**Added Helper Functions:**
+- `encryptSecret(plaintext, key)` - AES-256-GCM encryption
+- `decryptSecret(encrypted, key)` - AES-256-GCM decryption
+
+**Key Differences from Node.js Version:**
+- Uses Bun's synchronous Database API (`db.run()`, `db.query().get()`)
+- No callbacks - wrapped in `writeWithRetry()` for consistency
+- Marked methods with `// eslint-disable-next-line @typescript-eslint/require-await` where appropriate
+
+**Testing:**
+- Build: ✅ Passes (TypeScript compilation successful)
+- Verification: ✅ Both `persistence.js` and `persistence-bun.js` now have S3 methods
+
+**Commit:** `55d8301` - fix(persistence): add missing S3 config methods to Bun implementation
+
+---
+
 ### ✅ Bot Crash Fix: Expired Discord Interactions (Round 26)
 **Date:** 2025-11-24
 **Files:** `lib/slash-commands.ts`, `test/s3-integration.test.ts`

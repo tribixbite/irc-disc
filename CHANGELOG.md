@@ -47,6 +47,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added guidance on when to adjust cleanup thresholds
 
 ### Fixed
+- **S3 Configuration on Bun Runtime** - S3 config commands now work when running on Bun
+  - Added missing `saveS3Config()`, `getS3Config()`, `deleteS3Config()` methods to Bun persistence
+  - Added S3Config/S3ConfigRow interfaces and encryption helper functions
+  - Ensures feature parity between Node.js and Bun implementations
+  - Fixes "`bot.persistence.saveS3Config` is not a function" error
 - **Bot Crash on Expired Discord Interactions** - Prevents bot crash when slash commands time out
   - Added nested try-catch in `/irc-channelinfo` error handler
   - Checks `interaction.replied` and `interaction.deferred` before attempting reply
