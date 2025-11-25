@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.4] - 2025-11-25
+
 ### Added
 - **IRC Disconnection User Alerts** - Users notified when messages fail due to IRC connection loss
   - `@here` mention added to IRC connection status notifications (connected/disconnected/reconnecting)
