@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.6] - 2025-11-25
+
+### Added
+- **S3 Enhanced Configuration** - Improved S3 file sharing with advanced options
+  - `default_folder` - Configure default subfolder for all uploads
+  - `auto_share_to_irc` - Automatically share uploaded files to IRC channel
+  - `url_shortener_prefix` - Support for custom URL shortener services
+  - New options available in `/s3 config set` command
+  - Default folder automatically applied when uploading if no folder specified
+  - URL shortener creates clean links: `https://short.link/file.png (full-url)`
+
+### Changed
+- **S3 Share Command** - Now sends messages to IRC instead of Discord embeds
+  - `/s3 share` now posts file URL directly to IRC channel
+  - Respects URL shortener configuration for cleaner links
+  - Discord users receive ephemeral confirmation message
+  - IRC users see file upload notifications in real-time
+  - Format: `username uploaded filename.png - [short-url] (full-url)`
+
+### Fixed
+- **S3 Upload Auto-Share** - Files automatically shared to IRC when `auto_share_to_irc` is enabled
+  - Uploads via `/s3 files upload` automatically notify IRC users
+  - Configurable per-guild to match team workflow preferences
+
 ## [1.2.5] - 2025-11-25
 
 ### Fixed

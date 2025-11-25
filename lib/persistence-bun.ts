@@ -27,6 +27,9 @@ export interface S3Config {
   forcePathStyle: boolean;
   maxFileSizeMb: number;
   allowedRoles?: string[];
+  defaultFolder?: string; // Default subfolder for uploads
+  autoShareToIRC: boolean; // Auto-share uploaded files to IRC
+  urlShortenerPrefix?: string; // URL shortener prefix (e.g., "https://short.link/")
   createdAt: number;
   updatedAt: number;
 }
@@ -43,6 +46,9 @@ interface S3ConfigRow {
   force_path_style: number;
   max_file_size_mb: number;
   allowed_roles: string | null;
+  default_folder: string | null;
+  auto_share_to_irc: number; // SQLite boolean (0 or 1)
+  url_shortener_prefix: string | null;
   created_at: number;
   updated_at: number;
 }
@@ -175,6 +181,9 @@ export class PersistenceService {
         force_path_style INTEGER NOT NULL DEFAULT 0,
         max_file_size_mb INTEGER NOT NULL DEFAULT 10,
         allowed_roles TEXT,
+        default_folder TEXT,
+        auto_share_to_irc INTEGER DEFAULT 0,
+        url_shortener_prefix TEXT,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       )`
@@ -403,8 +412,9 @@ export class PersistenceService {
         INSERT OR REPLACE INTO guild_s3_configs
         (guild_id, bucket, region, endpoint, access_key_id, secret_access_key_encrypted,
          key_prefix, public_url_base, force_path_style, max_file_size_mb, allowed_roles,
+         default_folder, auto_share_to_irc, url_shortener_prefix,
          created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                 COALESCE((SELECT created_at FROM guild_s3_configs WHERE guild_id = ?), ?), ?)
       `, [
         config.guildId,
@@ -418,6 +428,9 @@ export class PersistenceService {
         config.forcePathStyle ? 1 : 0,
         config.maxFileSizeMb,
         allowedRolesJson,
+        config.defaultFolder || null,
+        config.autoShareToIRC ? 1 : 0,
+        config.urlShortenerPrefix || null,
         config.guildId, // for COALESCE
         now, // created_at if new
         now  // updated_at always
@@ -461,6 +474,9 @@ export class PersistenceService {
         forcePathStyle: row.force_path_style === 1,
         maxFileSizeMb: row.max_file_size_mb,
         allowedRoles,
+        defaultFolder: row.default_folder || undefined,
+        autoShareToIRC: row.auto_share_to_irc === 1,
+        urlShortenerPrefix: row.url_shortener_prefix || undefined,
         createdAt: row.created_at,
         updatedAt: row.updated_at
       };

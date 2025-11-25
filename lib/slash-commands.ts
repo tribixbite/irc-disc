@@ -28,10 +28,51 @@ export interface SlashCommand {
 // Admin permission check
 function hasAdminPermission(interaction: CommandInteraction): boolean {
   if (!interaction.member || !interaction.guild) return false;
-  
+
   // Check if user has administrator permission
   if (typeof interaction.member.permissions === 'string') return false;
   return interaction.member.permissions.has(Permissions.FLAGS.ADMINISTRATOR);
+}
+
+/**
+ * Share S3 file URL to IRC channel
+ * Formats message with optional URL shortener and sends to mapped IRC channel
+ */
+function shareToIRC(
+  bot: Bot,
+  discordChannelId: string,
+  username: string,
+  filename: string,
+  fullUrl: string,
+  urlShortenerPrefix?: string
+): boolean {
+  // Find the IRC channel mapped to this Discord channel
+  const ircChannel = bot.channelMapping[discordChannelId];
+  if (!ircChannel) {
+    logger.warn(`No IRC channel mapping found for Discord channel ${discordChannelId}`);
+    return false;
+  }
+
+  // Build the URL to share (shortened if prefix is configured)
+  let shareUrl = fullUrl;
+  let message = `${username} uploaded ${filename} - ${fullUrl}`;
+
+  if (urlShortenerPrefix) {
+    // Extract just the filename from the full URL and build shortened URL
+    const urlFilename = filename.split('/').pop() || filename;
+    const shortUrl = `${urlShortenerPrefix}${urlFilename}`;
+    message = `${username} uploaded ${filename} - ${shortUrl} (${fullUrl})`;
+  }
+
+  // Send message to IRC
+  try {
+    bot.ircClient.say(ircChannel, message);
+    logger.debug(`Shared S3 file to IRC: ${ircChannel} - ${filename}`);
+    return true;
+  } catch (error) {
+    logger.error(`Failed to share S3 file to IRC:`, error);
+    return false;
+  }
 }
 
 // Status command - show bot health and stats
@@ -1135,6 +1176,9 @@ async function handleS3ConfigCommands(interaction: CommandInteraction, bot: Bot,
       const endpoint = interaction.options.getString('endpoint') || undefined;
       const keyPrefix = interaction.options.getString('key_prefix') || undefined;
       const maxFileSizeMb = interaction.options.getInteger('max_file_size_mb') || 25;
+      const defaultFolder = interaction.options.getString('default_folder') || undefined;
+      const autoShareToIRC = interaction.options.getBoolean('auto_share_to_irc') ?? false;
+      const urlShortenerPrefix = interaction.options.getString('url_shortener_prefix') || undefined;
 
       if (maxFileSizeMb < 1 || maxFileSizeMb > 100) {
         await interaction.editReply({ content: '❌ Max file size must be 1-100 MB.' });
@@ -1142,7 +1186,7 @@ async function handleS3ConfigCommands(interaction: CommandInteraction, bot: Bot,
       }
 
       try {
-        const s3Config: S3Config = { guildId, bucket, region, endpoint, accessKeyId, secretAccessKey, keyPrefix, publicUrlBase: undefined, forcePathStyle: !!endpoint, maxFileSizeMb, allowedRoles: undefined, createdAt: Date.now(), updatedAt: Date.now() };
+        const s3Config: S3Config = { guildId, bucket, region, endpoint, accessKeyId, secretAccessKey, keyPrefix, publicUrlBase: undefined, forcePathStyle: !!endpoint, maxFileSizeMb, allowedRoles: undefined, defaultFolder, autoShareToIRC, urlShortenerPrefix, createdAt: Date.now(), updatedAt: Date.now() };
         if (!bot.persistence) throw new Error('Database not available');
         await bot.persistence.saveS3Config(s3Config);
 
@@ -1240,7 +1284,7 @@ async function handleS3FilesCommands(interaction: CommandInteraction, bot: Bot, 
       }
 
       const attachment = interaction.options.getAttachment('file', true);
-      const folder = interaction.options.getString('folder') || undefined;
+      const folder = interaction.options.getString('folder') || config.defaultFolder || undefined;
 
       if (attachment.size > config.maxFileSizeMb * 1024 * 1024) {
         await interaction.editReply({ content: `❌ **Too Large**\n\nSize: ${(attachment.size / 1024 / 1024).toFixed(2)} MB\nMax: ${config.maxFileSizeMb} MB` });
@@ -1252,13 +1296,28 @@ async function handleS3FilesCommands(interaction: CommandInteraction, bot: Bot, 
         const buffer = Buffer.from(await response.arrayBuffer());
         const filename = attachment.name || 'file';
         const customFilename = folder ? `${folder}/${filename}` : filename;
-            const result = await uploader.uploadFile(interaction.user.id, buffer, filename, customFilename || undefined);
+        const result = await uploader.uploadFile(interaction.user.id, buffer, filename, customFilename || undefined);
 
         if (result.success) {
           const embed = new MessageEmbed().setTitle('✅ Upload Success').setColor('#00ff00')
             .addField('File', filename, true).addField('Size', `${(attachment.size / 1024).toFixed(2)} KB`, true)
             .addField('Key', result.key!, false).addField('URL', result.url!, false).setTimestamp();
           await interaction.editReply({ embeds: [embed] });
+
+          // Auto-share to IRC if enabled
+          if (config.autoShareToIRC && result.url && interaction.channel) {
+            const sharedToIRC = shareToIRC(
+              bot,
+              interaction.channel.id,
+              interaction.user.username,
+              filename,
+              result.url,
+              config.urlShortenerPrefix
+            );
+            if (sharedToIRC) {
+              logger.debug(`Auto-shared upload to IRC: ${filename}`);
+            }
+          }
         } else {
           await interaction.editReply({ content: `❌ Upload failed: ${result.error}` });
         }
@@ -1554,34 +1613,26 @@ async function handleS3ShareCommand(interaction: CommandInteraction, bot: Bot): 
       return;
     }
 
-    // Build share embed
-    const shareEmbed = new MessageEmbed()
-      .setTitle(`📎 File Shared: ${filename}`)
-      .setColor('#00ff00')
-      .addField('Size', `${(attachment.size / 1024).toFixed(2)} KB`, true)
-      .addField('Type', attachment.contentType || 'Unknown', true)
-      .addField('Shared by', `<@${interaction.user.id}>`, true)
-      .addField('🔗 Download', result.url!, false)
-      .setTimestamp();
+    // Share to IRC instead of Discord
+    const sharedToIRC = shareToIRC(
+      bot,
+      targetChannel.id,
+      interaction.user.username,
+      filename,
+      result.url!,
+      config.urlShortenerPrefix
+    );
 
-    // Add user message if provided
-    if (userMessage) {
-      shareEmbed.setDescription(`*"${userMessage}"*`);
+    if (sharedToIRC) {
+      // Update ephemeral reply
+      await interaction.editReply({
+        content: `✅ **File Shared to IRC**\n\nChannel: <#${targetChannel.id}>\nFilename: ${filename}\nURL: ${result.url}`
+      });
+    } else {
+      await interaction.editReply({
+        content: `⚠️ **File Uploaded but Not Shared**\n\nNo IRC channel mapping found for <#${targetChannel.id}>.\n\nURL: ${result.url}`
+      });
     }
-
-    // Add image preview if it's an image
-    const isImage = attachment.contentType?.startsWith('image/');
-    if (isImage && result.url) {
-      shareEmbed.setImage(result.url);
-    }
-
-    // Send to target channel
-    await targetChannel.send({ embeds: [shareEmbed] });
-
-    // Update ephemeral reply
-    await interaction.editReply({
-      content: `✅ **File Shared Successfully**\n\nShared to: <#${targetChannel.id}>\nURL: ${result.url}`
-    });
   } catch (error) {
     logger.error('S3 share command error:', error);
     await interaction.editReply({ content: `❌ Share failed: ${(error as Error).message}` });
@@ -1604,7 +1655,10 @@ export const s3Command: SlashCommand = {
           { type: 'STRING', name: 'endpoint', description: 'S3-compatible endpoint', required: false },
           { type: 'STRING', name: 'key_prefix', description: 'Folder prefix', required: false },
           { type: 'INTEGER', name: 'max_file_size_mb', description: 'Max MB (1-100, default: 25)', required: false },
-          { type: 'STRING', name: 'encryption_key', description: 'Encryption key (auto-generated if omitted)', required: false }
+          { type: 'STRING', name: 'encryption_key', description: 'Encryption key (auto-generated if omitted)', required: false },
+          { type: 'STRING', name: 'default_folder', description: 'Default subfolder for uploads', required: false },
+          { type: 'BOOLEAN', name: 'auto_share_to_irc', description: 'Auto-share uploads to IRC (default: false)', required: false },
+          { type: 'STRING', name: 'url_shortener_prefix', description: 'URL shortener prefix (e.g., https://short.link/)', required: false }
         ]},
         { type: 'SUB_COMMAND', name: 'view', description: 'View configuration' },
         { type: 'SUB_COMMAND', name: 'test', description: 'Test connection' },
