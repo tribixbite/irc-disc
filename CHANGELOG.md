@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.7] - 2025-11-25
+
+### Fixed
+- **S3 Database Migration** - Automatic column migration for existing databases
+  - Detects missing S3 columns and adds them automatically on startup
+  - Uses `PRAGMA table_info` to check existing schema
+  - Applies `ALTER TABLE` statements only for missing columns
+  - Fixes "table guild_s3_configs has no column named default_folder" error
+  - Seamless upgrade path for users with existing S3 configurations
+
 ## [1.2.6] - 2025-11-25
 
 ### Added

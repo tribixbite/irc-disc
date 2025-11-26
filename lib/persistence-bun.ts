@@ -192,6 +192,48 @@ export class PersistenceService {
     for (const query of queries) {
       this.db.run(query);
     }
+
+    // Migration: Add new S3 columns if they don't exist (v1.2.6)
+    this.migrateS3Columns();
+  }
+
+  /**
+   * Migration helper: Add new S3 config columns if they don't exist
+   * SQLite doesn't support "ADD COLUMN IF NOT EXISTS", so we need to check first
+   */
+  private migrateS3Columns(): void {
+    try {
+      // Check if default_folder column exists
+      const tableInfo = this.db.query<{ name: string }, []>(
+        'PRAGMA table_info(guild_s3_configs)'
+      ).all();
+
+      const columnNames = tableInfo.map(col => col.name);
+
+      // Add missing columns
+      const migrations: string[] = [];
+      if (!columnNames.includes('default_folder')) {
+        migrations.push('ALTER TABLE guild_s3_configs ADD COLUMN default_folder TEXT');
+      }
+      if (!columnNames.includes('auto_share_to_irc')) {
+        migrations.push('ALTER TABLE guild_s3_configs ADD COLUMN auto_share_to_irc INTEGER DEFAULT 0');
+      }
+      if (!columnNames.includes('url_shortener_prefix')) {
+        migrations.push('ALTER TABLE guild_s3_configs ADD COLUMN url_shortener_prefix TEXT');
+      }
+
+      for (const migration of migrations) {
+        this.db.run(migration);
+        logger.info(`Migration applied: ${migration}`);
+      }
+
+      if (migrations.length > 0) {
+        logger.info(`S3 table migration completed: ${migrations.length} columns added`);
+      }
+    } catch (error) {
+      // If table doesn't exist yet, that's fine - it will be created with all columns
+      logger.debug('S3 migration check skipped (table may not exist yet)');
+    }
   }
 
   // PM Thread Management
