@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2025-11-25
+
+### Added
+- **S3 Share Discord History** - Share command now posts to Discord channel for chat history
+  - Visible embed message in target Discord channel with file details
+  - Shows file name, size, type, download URL, and uploader
+  - Image preview for image files
+  - Optional user message/caption support
+  - Keeps chat history while also notifying IRC users
+
 ## [1.2.9] - 2025-11-25
 
 ### Added

@@ -9,7 +9,7 @@
     "irc-disc",
     "reactiflux"
   ],
-  "version": "1.2.9",
+  "version": "1.3.0",
   "main": "dist/lib/index.js",
   "bin": {
     "irc-disc": "dist/lib/cli.js"

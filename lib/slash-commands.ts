@@ -1655,7 +1655,7 @@ async function handleS3ShareCommand(interaction: CommandInteraction, bot: Bot): 
       return;
     }
 
-    // Share to IRC instead of Discord
+    // Share to IRC
     const sharedToIRC = shareToIRC(
       bot,
       targetChannel.id,
@@ -1665,14 +1665,38 @@ async function handleS3ShareCommand(interaction: CommandInteraction, bot: Bot): 
       config.urlShortenerPrefix
     );
 
+    // Send visible message to Discord channel for chat history
+    const shareEmbed = new MessageEmbed()
+      .setTitle(`📎 File Shared: ${filename}`)
+      .setColor('#00ff00')
+      .addField('Size', `${(attachment.size / 1024).toFixed(2)} KB`, true)
+      .addField('Type', attachment.contentType || 'Unknown', true)
+      .addField('Shared by', `<@${interaction.user.id}>`, true)
+      .addField('🔗 Download', result.url!, false)
+      .setTimestamp();
+
+    // Add user message if provided
+    if (userMessage) {
+      shareEmbed.setDescription(`*"${userMessage}"*`);
+    }
+
+    // Add image preview if it's an image
+    const isImage = attachment.contentType?.startsWith('image/');
+    if (isImage && result.url) {
+      shareEmbed.setImage(result.url);
+    }
+
+    // Send to Discord channel
+    await targetChannel.send({ embeds: [shareEmbed] });
+
+    // Update ephemeral reply
     if (sharedToIRC) {
-      // Update ephemeral reply
       await interaction.editReply({
-        content: `✅ **File Shared to IRC**\n\nChannel: <#${targetChannel.id}>\nFilename: ${filename}\nURL: ${result.url}`
+        content: `✅ **File Shared**\n\nDiscord: <#${targetChannel.id}>\nIRC: Notified\nFilename: ${finalFilename}\nURL: ${result.url}`
       });
     } else {
       await interaction.editReply({
-        content: `⚠️ **File Uploaded but Not Shared**\n\nNo IRC channel mapping found for <#${targetChannel.id}>.\n\nURL: ${result.url}`
+        content: `✅ **File Shared to Discord**\n\nChannel: <#${targetChannel.id}>\n⚠️ No IRC mapping found\nURL: ${result.url}`
       });
     }
   } catch (error) {
