@@ -54,14 +54,16 @@ function shareToIRC(
   }
 
   // Build the URL to share (shortened if prefix is configured)
-  let shareUrl = fullUrl;
-  let message = `${username} uploaded ${filename} - ${fullUrl}`;
+  let message: string;
 
   if (urlShortenerPrefix) {
-    // Extract just the filename from the full URL and build shortened URL
+    // Use only the shortened URL when configured
     const urlFilename = filename.split('/').pop() || filename;
     const shortUrl = `${urlShortenerPrefix}${urlFilename}`;
-    message = `${username} uploaded ${filename} - ${shortUrl} (${fullUrl})`;
+    message = `${username} uploaded ${filename} - ${shortUrl}`;
+  } else {
+    // Use full URL when no shortener configured
+    message = `${username} uploaded ${filename} - ${fullUrl}`;
   }
 
   // Send message to IRC
@@ -1285,6 +1287,7 @@ async function handleS3FilesCommands(interaction: CommandInteraction, bot: Bot, 
 
       const attachment = interaction.options.getAttachment('file', true);
       const folder = interaction.options.getString('folder') || config.defaultFolder || undefined;
+      const customName = interaction.options.getString('name') || undefined;
 
       if (attachment.size > config.maxFileSizeMb * 1024 * 1024) {
         await interaction.editReply({ content: `❌ **Too Large**\n\nSize: ${(attachment.size / 1024 / 1024).toFixed(2)} MB\nMax: ${config.maxFileSizeMb} MB` });
@@ -1294,9 +1297,28 @@ async function handleS3FilesCommands(interaction: CommandInteraction, bot: Bot, 
       try {
         const response = await fetch(attachment.url);
         const buffer = Buffer.from(await response.arrayBuffer());
-        const filename = attachment.name || 'file';
+        const filename = customName || attachment.name || 'file';
         const customFilename = folder ? `${folder}/${filename}` : filename;
-        const result = await uploader.uploadFile(interaction.user.id, buffer, filename, customFilename || undefined);
+
+        // Check if file already exists and auto-rename if needed
+        let finalFilename = customFilename;
+        try {
+          await uploader.getObjectMetadata(customFilename);
+          // File exists - auto-rename with timestamp
+          const timestamp = Date.now();
+          const ext = filename.includes('.') ? filename.substring(filename.lastIndexOf('.')) : '';
+          const baseName = filename.includes('.') ? filename.substring(0, filename.lastIndexOf('.')) : filename;
+          const renamedFile = `${baseName}_${timestamp}${ext}`;
+          finalFilename = folder ? `${folder}/${renamedFile}` : renamedFile;
+
+          await interaction.editReply({
+            content: `⚠️ **File Renamed**\n\nOriginal: \`${customFilename}\`\nRenamed to: \`${finalFilename}\`\n\nUploading...`
+          });
+        } catch {
+          // File doesn't exist, continue with original name
+        }
+
+        const result = await uploader.uploadFile(interaction.user.id, buffer, filename, finalFilename || undefined);
 
         if (result.success) {
           const embed = new MessageEmbed().setTitle('✅ Upload Success').setColor('#00ff00')
@@ -1310,12 +1332,12 @@ async function handleS3FilesCommands(interaction: CommandInteraction, bot: Bot, 
               bot,
               interaction.channel.id,
               interaction.user.username,
-              filename,
+              finalFilename,
               result.url,
               config.urlShortenerPrefix
             );
             if (sharedToIRC) {
-              logger.debug(`Auto-shared upload to IRC: ${filename}`);
+              logger.debug(`Auto-shared upload to IRC: ${finalFilename}`);
             }
           }
         } else {
@@ -1574,6 +1596,7 @@ async function handleS3ShareCommand(interaction: CommandInteraction, bot: Bot): 
   const targetChannel = interaction.options.getChannel('channel') || interaction.channel;
   const userMessage = interaction.options.getString('message') || undefined;
   const folder = interaction.options.getString('folder') || config.defaultFolder || undefined;
+  const customName = interaction.options.getString('name') || undefined;
 
   // Validate file size
   if (attachment.size > config.maxFileSizeMb * 1024 * 1024) {
@@ -1604,9 +1627,28 @@ async function handleS3ShareCommand(interaction: CommandInteraction, bot: Bot): 
 
     const response = await fetch(attachment.url);
     const buffer = Buffer.from(await response.arrayBuffer());
-    const filename = attachment.name || 'file';
+    const filename = customName || attachment.name || 'file';
     const customFilename = folder ? `${folder}/${filename}` : filename;
-        const result = await uploader.uploadFile(interaction.user.id, buffer, filename, customFilename || undefined);
+
+    // Check if file already exists and auto-rename if needed
+    let finalFilename = customFilename;
+    try {
+      await uploader.getObjectMetadata(customFilename);
+      // File exists - auto-rename with timestamp
+      const timestamp = Date.now();
+      const ext = filename.includes('.') ? filename.substring(filename.lastIndexOf('.')) : '';
+      const baseName = filename.includes('.') ? filename.substring(0, filename.lastIndexOf('.')) : filename;
+      const renamedFile = `${baseName}_${timestamp}${ext}`;
+      finalFilename = folder ? `${folder}/${renamedFile}` : renamedFile;
+
+      await interaction.editReply({
+        content: `⚠️ **File Renamed**\n\nOriginal: \`${customFilename}\`\nRenamed to: \`${finalFilename}\`\n\nUploading and sharing...`
+      });
+    } catch {
+      // File doesn't exist, continue with original name
+    }
+
+    const result = await uploader.uploadFile(interaction.user.id, buffer, filename, finalFilename || undefined);
 
     if (!result.success) {
       await interaction.editReply({ content: `❌ Upload failed: ${result.error}` });
@@ -1618,7 +1660,7 @@ async function handleS3ShareCommand(interaction: CommandInteraction, bot: Bot): 
       bot,
       targetChannel.id,
       interaction.user.username,
-      customFilename,
+      finalFilename,
       result.url!,
       config.urlShortenerPrefix
     );
@@ -1667,7 +1709,8 @@ export const s3Command: SlashCommand = {
       { type: 'SUB_COMMAND_GROUP', name: 'files', description: 'File operations', options: [
         { type: 'SUB_COMMAND', name: 'upload', description: 'Upload file to S3', options: [
           { type: 'ATTACHMENT', name: 'file', description: 'File to upload', required: true },
-          { type: 'STRING', name: 'folder', description: 'Optional folder', required: false }
+          { type: 'STRING', name: 'folder', description: 'Optional folder', required: false },
+          { type: 'STRING', name: 'name', description: 'Custom filename (default: original name)', required: false }
         ]},
         { type: 'SUB_COMMAND', name: 'list', description: 'List files', options: [
           { type: 'STRING', name: 'prefix', description: 'Filter by prefix', required: false }
@@ -1687,7 +1730,8 @@ export const s3Command: SlashCommand = {
         { type: 'ATTACHMENT', name: 'file', description: 'File to upload and share', required: true },
         { type: 'CHANNEL', name: 'channel', description: 'Target channel (default: current)', required: false },
         { type: 'STRING', name: 'message', description: 'Optional message/caption', required: false },
-        { type: 'STRING', name: 'folder', description: 'Optional S3 folder', required: false }
+        { type: 'STRING', name: 'folder', description: 'Optional S3 folder', required: false },
+        { type: 'STRING', name: 'name', description: 'Custom filename (default: original name)', required: false }
       ]},
       { type: 'SUB_COMMAND', name: 'status', description: 'Show status' }
     ]

@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.9] - 2025-11-25
+
+### Added
+- **Custom Filename Support** - Upload and share commands now accept optional `name` parameter
+  - `/s3 files upload` now has `name` option for custom filename
+  - `/s3 share` now has `name` option for custom filename
+  - Overrides original attachment filename when specified
+- **Automatic File Conflict Resolution** - Duplicate files automatically renamed
+  - Detects existing files before upload using S3 metadata check
+  - Auto-renames with timestamp suffix: `filename_1732567890.ext`
+  - Shows rename notification before upload proceeds
+  - Works for both upload and share commands
+
+### Changed
+- **IRC Message Format** - Cleaner URL sharing when shortener is configured
+  - With shortener: `username uploaded file.png - https://short.link/file.png`
+  - Without shortener: `username uploaded file.png - https://full-s3-url.com/...`
+  - Removed redundant full URL when shortener is active
+
 ## [1.2.8] - 2025-11-25
 
 ### Fixed
