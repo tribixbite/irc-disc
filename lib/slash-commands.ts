@@ -1573,7 +1573,7 @@ async function handleS3ShareCommand(interaction: CommandInteraction, bot: Bot): 
   const attachment = interaction.options.getAttachment('file', true);
   const targetChannel = interaction.options.getChannel('channel') || interaction.channel;
   const userMessage = interaction.options.getString('message') || undefined;
-  const folder = interaction.options.getString('folder') || undefined;
+  const folder = interaction.options.getString('folder') || config.defaultFolder || undefined;
 
   // Validate file size
   if (attachment.size > config.maxFileSizeMb * 1024 * 1024) {
@@ -1618,7 +1618,7 @@ async function handleS3ShareCommand(interaction: CommandInteraction, bot: Bot): 
       bot,
       targetChannel.id,
       interaction.user.username,
-      filename,
+      customFilename,
       result.url!,
       config.urlShortenerPrefix
     );

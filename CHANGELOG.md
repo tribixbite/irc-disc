@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.8] - 2025-11-25
+
+### Fixed
+- **S3 Share Command** - Now properly respects default folder and URL shortener settings
+  - `/s3 share` uses `default_folder` config when no folder specified
+  - Passes full S3 key path (with folder) to IRC share message
+  - URL shortener correctly extracts base filename from full path
+  - IRC message shows folder path: "username uploaded folder/file.png - [short-url]"
+
 ## [1.2.7] - 2025-11-25
 
 ### Fixed
