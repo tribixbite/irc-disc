@@ -166,6 +166,10 @@ class Bot {
   private lastIRCActivity: number = Date.now();
   private ircHealthCheckInterval?: NodeJS.Timeout;
 
+  // NickServ GHOST recovery
+  private nickservPassword?: string;
+  private ghostAttempted: boolean = false;
+
   constructor(options: Record<string, unknown>) {
     for (const field of REQUIRED_FIELDS) {
       if (!options[field]) {
@@ -218,6 +222,9 @@ class Bot {
     this.ignoreUsers.irc = this.ignoreUsers.irc || [];
     this.ignoreUsers.discord = this.ignoreUsers.discord || [];
     this.ignoreUsers.discordIds = this.ignoreUsers.discordIds || [];
+
+    // NickServ password for GHOST recovery (reclaim nick from ghost connections)
+    this.nickservPassword = options.nickservPassword as string | undefined;
 
     // "{$keyName}" => "variableValue"
     // author/nickname: nickname of the user who sent the message
@@ -924,6 +931,64 @@ class Bot {
       setInterval(() => {
         this.ircUserManager.cleanup();
       }, 6 * 60 * 60 * 1000);
+
+      // Reset ghost attempt flag on successful registration
+      this.ghostAttempted = false;
+    });
+
+    // Handle raw IRC messages for NickServ GHOST recovery
+    this.ircClient.on('raw', (message: { rawCommand: string; args: string[]; nick?: string }) => {
+      // Handle 433 (ERR_NICKNAMEINUSE) - Nick is already in use
+      if (message.rawCommand === '433' && this.nickservPassword && !this.ghostAttempted) {
+        const desiredNick = this.nickname;
+        const currentNick = message.args[1]; // The nick that's in use
+
+        if (currentNick === desiredNick) {
+          logger.info(`🔄 Nick "${desiredNick}" is in use, attempting NickServ GHOST recovery...`);
+          this.ghostAttempted = true;
+
+          // Send GHOST command to NickServ
+          this.ircClient.say('NickServ', `GHOST ${desiredNick} ${this.nickservPassword}`);
+
+          // Wait a moment for GHOST to process, then try to reclaim nick
+          setTimeout(() => {
+            logger.info(`🔄 Attempting to reclaim nick "${desiredNick}" after GHOST...`);
+            this.ircClient.send('NICK', desiredNick);
+
+            // Also identify with NickServ
+            setTimeout(() => {
+              if (this.nickservPassword) {
+                this.ircClient.say('NickServ', `IDENTIFY ${this.nickservPassword}`);
+              }
+            }, 2000);
+          }, 3000);
+        }
+      }
+    });
+
+    // Handle NickServ notices for GHOST feedback
+    this.ircClient.on('notice', (author, to, text) => {
+      this.lastIRCActivity = Date.now();
+      this.metrics.updateIRCActivity();
+
+      // Check for NickServ GHOST success messages
+      if (author?.toLowerCase() === 'nickserv') {
+        const lowerText = text.toLowerCase();
+        if (lowerText.includes('ghost') && (lowerText.includes('killed') || lowerText.includes('disconnected') || lowerText.includes('has been ghosted'))) {
+          logger.info(`✅ NickServ GHOST successful: ${text}`);
+          // Nick should now be available, try to reclaim
+          if (this.ircClient.nick !== this.nickname) {
+            this.ircClient.send('NICK', this.nickname);
+          }
+        } else if (lowerText.includes('you are now identified')) {
+          logger.info(`✅ NickServ identification successful`);
+        }
+      }
+
+      // Forward notice to Discord (existing behavior)
+      this.sendToDiscord(author, to, `*${text}*`).catch((error) => {
+        logger.error('Error sending IRC notice to Discord:', error);
+      });
     });
 
     this.ircClient.on('error', (error) => {
@@ -997,15 +1062,6 @@ class Bot {
       this.lastIRCActivity = Date.now(); // Track activity
       this.metrics.updateIRCActivity();
       await this.handleIrcPrivateMessage(from, text);
-    });
-
-    // Handle IRC notices with proper async error handling
-    this.ircClient.on('notice', (author, to, text) => {
-      this.lastIRCActivity = Date.now(); // Track activity
-      this.metrics.updateIRCActivity();
-      this.sendToDiscord(author, to, `*${text}*`).catch((error) => {
-        logger.error('Error sending IRC notice to Discord:', error);
-      });
     });
 
     // Handle IRC nick changes with proper async error handling
