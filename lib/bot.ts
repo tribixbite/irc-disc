@@ -167,7 +167,6 @@ class Bot {
   private ircHealthCheckInterval?: NodeJS.Timeout;
 
   // NickServ GHOST recovery
-  private nickservPassword?: string;
   private ghostAttempted: boolean = false;
 
   constructor(options: Record<string, unknown>) {
@@ -222,9 +221,6 @@ class Bot {
     this.ignoreUsers.irc = this.ignoreUsers.irc || [];
     this.ignoreUsers.discord = this.ignoreUsers.discord || [];
     this.ignoreUsers.discordIds = this.ignoreUsers.discordIds || [];
-
-    // NickServ password for GHOST recovery (reclaim nick from ghost connections)
-    this.nickservPassword = options.nickservPassword as string | undefined;
 
     // "{$keyName}" => "variableValue"
     // author/nickname: nickname of the user who sent the message
@@ -937,9 +933,11 @@ class Bot {
     });
 
     // Handle raw IRC messages for NickServ GHOST recovery
+    // Uses password from ircOptions (same as SASL/server auth)
     this.ircClient.on('raw', (message: { rawCommand: string; args: string[]; nick?: string }) => {
       // Handle 433 (ERR_NICKNAMEINUSE) - Nick is already in use
-      if (message.rawCommand === '433' && this.nickservPassword && !this.ghostAttempted) {
+      const ircPassword = (this.ircOptions as { password?: string })?.password;
+      if (message.rawCommand === '433' && ircPassword && !this.ghostAttempted) {
         const desiredNick = this.nickname;
         const currentNick = message.args[1]; // The nick that's in use
 
@@ -948,7 +946,7 @@ class Bot {
           this.ghostAttempted = true;
 
           // Send GHOST command to NickServ
-          this.ircClient.say('NickServ', `GHOST ${desiredNick} ${this.nickservPassword}`);
+          this.ircClient.say('NickServ', `GHOST ${desiredNick} ${ircPassword}`);
 
           // Wait a moment for GHOST to process, then try to reclaim nick
           setTimeout(() => {
@@ -957,8 +955,9 @@ class Bot {
 
             // Also identify with NickServ
             setTimeout(() => {
-              if (this.nickservPassword) {
-                this.ircClient.say('NickServ', `IDENTIFY ${this.nickservPassword}`);
+              const pw = (this.ircOptions as { password?: string })?.password;
+              if (pw) {
+                this.ircClient.say('NickServ', `IDENTIFY ${pw}`);
               }
             }, 2000);
           }, 3000);

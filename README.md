@@ -168,8 +168,9 @@ The bridge maintains comprehensive user information:
   "server": "irc.libera.chat",
   "port": 6697,
   "secure": true,
-  "password": "optional_server_password",
-  "nickservPassword": "optional_nickserv_password",
+  "ircOptions": {
+    "password": "optional_nickserv_password"
+  },
   "discordToken": "YOUR_DISCORD_BOT_TOKEN",
   "channelMapping": {
     "DISCORD_CHANNEL_ID": "#irc-channel"
@@ -183,7 +184,7 @@ The bridge maintains comprehensive user information:
 | `server` | string | IRC server hostname |
 | `port` | number | IRC server port (default: 6697 for SSL) |
 | `secure` | boolean | Use SSL/TLS connection |
-| `nickservPassword` | string | NickServ password for GHOST recovery and identification |
+| `ircOptions.password` | string | NickServ password (used for GHOST recovery and auto-identify) |
 | `discordToken` | string | Discord bot token |
 | `channelMapping` | object | Discord ↔ IRC channel mappings |
 

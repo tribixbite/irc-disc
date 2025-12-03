@@ -1177,13 +1177,13 @@ async function handleS3ConfigCommands(interaction: CommandInteraction, bot: Bot,
       const secretAccessKey = interaction.options.getString('secret_access_key', true);
       const endpoint = interaction.options.getString('endpoint') || undefined;
       const keyPrefix = interaction.options.getString('key_prefix') || undefined;
-      const maxFileSizeMb = interaction.options.getInteger('max_file_size_mb') || 25;
+      const maxFileSizeMb = interaction.options.getInteger('max_file_size_mb') || 100;
       const defaultFolder = interaction.options.getString('default_folder') || undefined;
       const autoShareToIRC = interaction.options.getBoolean('auto_share_to_irc') ?? false;
       const urlShortenerPrefix = interaction.options.getString('url_shortener_prefix') || undefined;
 
-      if (maxFileSizeMb < 1 || maxFileSizeMb > 100) {
-        await interaction.editReply({ content: '❌ Max file size must be 1-100 MB.' });
+      if (maxFileSizeMb < 1 || maxFileSizeMb > 500) {
+        await interaction.editReply({ content: '❌ Max file size must be 1-500 MB.' });
         return;
       }
 
@@ -1720,7 +1720,7 @@ export const s3Command: SlashCommand = {
           { type: 'STRING', name: 'secret_access_key', description: 'AWS Secret (encrypted)', required: true },
           { type: 'STRING', name: 'endpoint', description: 'S3-compatible endpoint', required: false },
           { type: 'STRING', name: 'key_prefix', description: 'Folder prefix', required: false },
-          { type: 'INTEGER', name: 'max_file_size_mb', description: 'Max MB (1-100, default: 25)', required: false },
+          { type: 'INTEGER', name: 'max_file_size_mb', description: 'Max MB (1-500, default: 100)', required: false },
           { type: 'STRING', name: 'encryption_key', description: 'Encryption key (auto-generated if omitted)', required: false },
           { type: 'STRING', name: 'default_folder', description: 'Default subfolder for uploads', required: false },
           { type: 'BOOLEAN', name: 'auto_share_to_irc', description: 'Auto-share uploads to IRC (default: false)', required: false },
