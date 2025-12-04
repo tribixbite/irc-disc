@@ -705,12 +705,25 @@ class Bot {
     try {
       logger.info('Reconnecting IRC client...');
 
-      // Disconnect existing client
-      if (this.ircClient && this.ircClient.readyState === 'open') {
-        this.ircClient.disconnect();
+      // CRITICAL: Properly destroy old IRC client to prevent duplicate connections
+      if (this.ircClient) {
+        logger.info('Destroying old IRC client before reconnection...');
+
+        // Remove all event listeners to prevent ghost handlers
+        this.ircClient.removeAllListeners();
+
+        // Disconnect regardless of state (could be connecting, open, or errored)
+        try {
+          this.ircClient.disconnect('Reconnecting');
+        } catch (e) {
+          logger.debug('IRC disconnect error (expected if already disconnected):', e);
+        }
+
+        // Clear the reference
+        this.ircClient = null as unknown as typeof this.ircClient;
       }
 
-      // Wait a moment for cleanup
+      // Wait for cleanup to complete
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       // CRITICAL: Resolve DNS via shell workaround (same as initial connection)
@@ -990,61 +1003,51 @@ class Bot {
       });
     });
 
-    this.ircClient.on('error', (error) => {
-      logger.error('❌ Received error event from IRC', error);
+    // CRITICAL: Use a flag to prevent multiple error handlers from triggering duplicate reconnections
+    // IRC library fires multiple events on disconnect (error, close, abort, netError)
+    let disconnectHandled = false;
 
-      // Update connection state - error might indicate connection loss
+    const handleIRCDisconnect = (reason: string, error?: Error) => {
+      // Only handle the first disconnect event to prevent duplicate reconnections
+      if (disconnectHandled || this.ircReconnecting) {
+        logger.debug(`Ignoring duplicate IRC disconnect event: ${reason}`);
+        return;
+      }
+      disconnectHandled = true;
+
+      logger.warn(`❌ IRC disconnected: ${reason}`);
+
+      // Update connection state
       this.ircConnected = false;
       this.ircRegistered = false;
 
       // Send IRC disconnected notification
-      this.sendIRCConnectionNotification('disconnected', error?.message || 'IRC error');
+      this.sendIRCConnectionNotification('disconnected', reason);
 
-      this.metrics.recordConnectionError();
       this.metrics.recordIRCDisconnected();
-      this.recoveryManager.recordFailure('irc', error);
+      this.metrics.recordConnectionError();
+      this.recoveryManager.recordFailure('irc', error || new Error(reason));
+
+      // Reset flag after a delay to allow future disconnect handling
+      setTimeout(() => {
+        disconnectHandled = false;
+      }, 5000);
+    };
+
+    this.ircClient.on('error', (error) => {
+      handleIRCDisconnect(error?.message || 'IRC error', error);
     });
 
     this.ircClient.on('abort', () => {
-      logger.warn('❌ IRC connection aborted');
-
-      // Update connection state
-      this.ircConnected = false;
-      this.ircRegistered = false;
-
-      // Send IRC disconnected notification
-      this.sendIRCConnectionNotification('disconnected', 'Connection aborted');
-
-      this.metrics.recordIRCDisconnected();
-      this.recoveryManager.recordFailure('irc', new Error('IRC connection aborted'));
+      handleIRCDisconnect('Connection aborted');
     });
 
     this.ircClient.on('close', () => {
-      logger.warn('❌ IRC connection closed');
-
-      // Update connection state
-      this.ircConnected = false;
-      this.ircRegistered = false;
-
-      // Send IRC disconnected notification
-      this.sendIRCConnectionNotification('disconnected', 'Connection closed');
-
-      this.metrics.recordIRCDisconnected();
-      this.recoveryManager.recordFailure('irc', new Error('IRC connection closed'));
+      handleIRCDisconnect('Connection closed');
     });
 
     this.ircClient.on('netError', (error) => {
-      logger.error('❌ IRC network error:', error);
-
-      // Update connection state
-      this.ircConnected = false;
-      this.ircRegistered = false;
-
-      // Send IRC disconnected notification
-      this.sendIRCConnectionNotification('disconnected', `Network error: ${error?.message || error || 'Unknown'}`);
-
-      this.metrics.recordIRCDisconnected();
-      this.recoveryManager.recordFailure('irc', error);
+      handleIRCDisconnect(`Network error: ${error?.message || error || 'Unknown'}`, error);
     });
 
     // Handle IRC messages with proper async error handling
