@@ -14,18 +14,19 @@ const packageJson: { version: string } = JSON.parse(
 );
 
 // Global error handlers for production stability
+// CRITICAL: Do NOT exit on errors - bridge bot must maintain 24/7 connectivity
 process.on('uncaughtException', (error: Error, origin: string) => {
-  logger.error(`[FATAL] Uncaught Exception at: ${origin}`, error);
-  logger.error('Stack trace:', error.stack);
-  // Exit cleanly - let process manager restart the bot
-  process.exit(1);
+  logger.error(`[ERROR] Uncaught Exception at: ${origin}`, error?.message || error);
+  logger.error('Stack trace:', error?.stack || 'No stack trace');
+  // DO NOT EXIT - bot must stay running for 24/7 bridge connectivity
+  // The error is logged and we continue operating
 });
 
 process.on('unhandledRejection', (reason: unknown, promise: Promise<unknown>) => {
-  logger.error('[FATAL] Unhandled Promise Rejection at:', promise);
-  logger.error('Reason:', reason);
-  // Exit cleanly - let process manager restart the bot
-  process.exit(1);
+  logger.error('[ERROR] Unhandled Promise Rejection:', reason);
+  logger.debug('Promise:', promise);
+  // DO NOT EXIT - bot must stay running for 24/7 bridge connectivity
+  // The error is logged and we continue operating
 });
 
 function readJSONConfig(filePath: string): unknown {
