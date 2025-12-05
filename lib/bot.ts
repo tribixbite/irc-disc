@@ -963,11 +963,21 @@ class Bot {
 
           // Wait a moment for GHOST to process, then try to reclaim nick
           setTimeout(() => {
+            // Guard against client being destroyed during reconnection
+            if (!this.ircClient) {
+              logger.debug('IRC client destroyed, skipping GHOST nick reclaim');
+              return;
+            }
             logger.info(`🔄 Attempting to reclaim nick "${desiredNick}" after GHOST...`);
             this.ircClient.send('NICK', desiredNick);
 
             // Also identify with NickServ
             setTimeout(() => {
+              // Guard against client being destroyed during reconnection
+              if (!this.ircClient) {
+                logger.debug('IRC client destroyed, skipping NickServ IDENTIFY');
+                return;
+              }
               const pw = (this.ircOptions as { password?: string })?.password;
               if (pw) {
                 this.ircClient.say('NickServ', `IDENTIFY ${pw}`);
@@ -989,7 +999,7 @@ class Bot {
         if (lowerText.includes('ghost') && (lowerText.includes('killed') || lowerText.includes('disconnected') || lowerText.includes('has been ghosted'))) {
           logger.info(`✅ NickServ GHOST successful: ${text}`);
           // Nick should now be available, try to reclaim
-          if (this.ircClient.nick !== this.nickname) {
+          if (this.ircClient && this.ircClient.nick !== this.nickname) {
             this.ircClient.send('NICK', this.nickname);
           }
         } else if (lowerText.includes('you are now identified')) {
