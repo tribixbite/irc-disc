@@ -948,6 +948,9 @@ class Bot {
     // Handle raw IRC messages for NickServ GHOST recovery
     // Uses password from ircOptions (same as SASL/server auth)
     this.ircClient.on('raw', (message: { rawCommand: string; args: string[]; nick?: string }) => {
+      // Guard against client being destroyed during reconnection
+      if (!this.ircClient) return;
+
       // Handle 433 (ERR_NICKNAMEINUSE) - Nick is already in use
       const ircPassword = (this.ircOptions as { password?: string })?.password;
       if (message.rawCommand === '433' && ircPassword && !this.ghostAttempted) {
@@ -990,6 +993,9 @@ class Bot {
 
     // Handle NickServ notices for GHOST feedback
     this.ircClient.on('notice', (author, to, text) => {
+      // Guard against client being destroyed during reconnection
+      if (!this.ircClient) return;
+
       this.lastIRCActivity = Date.now();
       this.metrics.updateIRCActivity();
 
