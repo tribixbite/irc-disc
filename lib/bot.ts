@@ -624,7 +624,25 @@ class Bot {
     });
 
     this.recoveryManager.on('serviceSilent', (service, health) => {
-      logger.warn(`⚠️ ${service} has been silent for ${Date.now() - health.lastSuccessful}ms`);
+      const silentMs = Date.now() - health.lastSuccessful;
+      logger.warn(`⚠️ ${service} has been silent for ${silentMs}ms`);
+
+      // If IRC has been silent for more than 2 minutes and we're not already reconnecting,
+      // check if IRC is actually connected and trigger reconnection if not
+      if (service === 'irc' && silentMs > 120000 && !this.ircReconnecting) {
+        // Use isIRCConnected() which checks both flags AND actual socket state
+        if (!this.isIRCConnected()) {
+          logger.warn(`🔄 IRC appears disconnected (silent for ${Math.round(silentMs / 1000)}s), triggering reconnection...`);
+
+          // Reset circuit breaker to allow reconnection (previous failure state is stale)
+          if (!this.recoveryManager.isServiceAvailable('irc')) {
+            logger.info('Resetting IRC circuit breaker to allow reconnection after extended silence');
+            this.recoveryManager.resetCircuitBreaker('irc');
+          }
+
+          this.recoveryManager.recordFailure('irc', new Error(`IRC silent for ${Math.round(silentMs / 1000)}s - connection lost`));
+        }
+      }
     });
   }
 
@@ -1968,9 +1986,30 @@ class Bot {
   /**
    * Check if IRC client is currently connected and registered
    * This provides a reliable way for slash commands to check IRC availability
+   * Checks both flags AND actual socket state for reliability
    */
   isIRCConnected(): boolean {
-    return this.ircConnected && this.ircRegistered;
+    // Check flags first (fast path)
+    if (!this.ircConnected || !this.ircRegistered) {
+      return false;
+    }
+
+    // Also check actual socket state - connection may have died silently
+    if (!this.ircClient) {
+      return false;
+    }
+
+    // Check socket readyState if available
+    const socketState = this.ircClient.conn?.readyState ?? this.ircClient.readyState;
+    if (socketState && socketState !== 'open') {
+      // Update our flags to reflect reality
+      this.ircConnected = false;
+      this.ircRegistered = false;
+      logger.warn(`IRC socket state is "${socketState}", marking as disconnected`);
+      return false;
+    }
+
+    return true;
   }
 
   /**
